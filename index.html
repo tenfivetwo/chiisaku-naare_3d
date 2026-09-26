@@ -1,0 +1,3373 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>まめまる3D（おためし）</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#cdeab4;
+    font-family:"Hiragino Maru Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;}
+  canvas{display:block;touch-action:none;}
+  #top{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;
+    padding:calc(env(safe-area-inset-top) + 10px) 12px 0;pointer-events:none;}
+  #top .ttl{flex:1;font-weight:bold;color:#7a5a48;font-size:15px;
+    text-shadow:0 1px 0 #fff,0 0 6px rgba(255,255,255,.9);}
+  #top button{pointer-events:auto;min-width:44px;height:44px;border:none;border-radius:22px;
+    background:rgba(255,253,246,.88);color:#7a5a48;font:inherit;font-weight:bold;font-size:15px;
+    padding:0 14px;box-shadow:0 2px 6px rgba(120,90,60,.18);}
+  #nextCard{position:fixed;left:12px;top:calc(env(safe-area-inset-top) + 62px);display:flex;align-items:center;gap:4px;
+    background:rgba(255,253,246,.82);border-radius:18px;padding:4px 10px 4px 12px;box-shadow:0 2px 6px rgba(120,90,60,.15);
+    pointer-events:none;color:#7a5a48;font-weight:bold;font-size:13px;}
+  #nextCard.hidden{display:none;}
+  #nextCv{width:92px;height:52px;display:block;}
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 124px);transform:translate(-50%,-8px);opacity:0;
+    transition:opacity .3s,transform .3s;background:rgba(255,253,246,.9);color:#7a5a48;font-weight:bold;font-size:14px;
+    padding:8px 16px;border-radius:18px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 6px rgba(120,90,60,.15);}
+  #toast.on{opacity:1;transform:translate(-50%,0);}
+  #hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 12px);text-align:center;
+    color:#6d5a4c;font-size:13px;pointer-events:none;text-shadow:0 1px 0 #fff,0 0 6px rgba(255,255,255,.9);}
+  #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(255,250,238,.72);text-align:center;color:#6d5a4c;}
+  #start.hidden{display:none;}
+  #start h1{margin:0 0 6px;font-size:30px;color:#e0668a;text-shadow:0 2px 0 #fff;}
+  #start p{margin:4px 16px;font-size:15px;line-height:1.6;}
+  #start .warn{font-size:13px;color:#7a6a9a;}
+  #start .small{font-size:12px;opacity:.8;margin-top:14px;}
+  #startBtn{margin-top:22px;font:inherit;font-weight:bold;font-size:20px;color:#fff;background:#f08aa8;
+    border:none;border-radius:30px;padding:14px 44px;box-shadow:0 4px 0 #d86c8d;}
+  #startBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #d86c8d;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="top"><div class="ttl">まめまる3D（おためし）</div>
+  <button id="levelBtn" style="display:none">まっすぐ</button><button id="sceneBtn" title="けしきと お盆を かえる">🎨</button><button id="soundBtn">🔊</button></div>
+<div id="nextCard" class="hidden"><span>つぎ</span><canvas id="nextCv"></canvas></div>
+<div id="toast"></div>
+<div id="hint">スマホを傾けて転がそう ／ パソコンはドラッグか矢印キー</div>
+<div id="start">
+  <h1>まめまる3D</h1>
+  <p>お盆を傾けて、おなじ子どうしを<br>くっつけよう。くっつくと小さくなるよ。</p>
+  <p>いちばん小さい子が2匹そろうと、<br>門からなかよく出かけていくよ。</p>
+  <p>生まれた子は近くのなかまを呼ぶよ。<br>つづけてくっつくと「連鎖」！</p>
+  <p class="warn">つむじかぜにさわると、もとの2人にもどっちゃう。<br>はたの立っている切れ目からは、小さい子が出ていっちゃうよ。</p>
+  <button id="startBtn">はじめる</button>
+  <p class="small">スマホは持ちやすい角度で押してね（その角度が「まっすぐ」になります）</p>
+</div>
+<script>
+(() => {
+"use strict";
+const ALL_CHARACTERS = [
+  // らいおん：body/shade/line は「たてがみ」の色。うちがわの かおは faceB/faceS/faceL。
+  // amp を 大きく して でこぼこ 9つに すると、輪郭 そのものが たてがみに 見える。
+  { name:"らいおん", r:64, body:"#D99B45", shade:"#C07F2C", line:"#9C6520", ear:"none",  earIn:"#FFC9A8", face:"lion",   sm:"nyan",   eye:"sparkle", acc:"heart2",  fluff:9,  amp:.13, hi:"#F0BE7A", faceB:"#F7D089", faceS:"#E3AE55", faceL:"#B9812F" },
+  { name:"うし",     r:49, body:"#FFFDF8", shade:"#EDE7E0", line:"#C4BAB1", ear:"cow",   earIn:"#FFC2D2", face:"cow",    sm:"cow",    eye:"sparkle", acc:"note",    fluff:17, amp:.026, cowA:"#3B3330" },
+  { name:"こあら",   r:36, body:"#BFC6CD", shade:"#9FA8B2", line:"#7F8A95", ear:"koala", earIn:"#F4ECE6", face:"koala",  sm:"koala",  eye:"sparkle", acc:"note",    fluff:16, amp:.034 },
+  { name:"いぬ",     r:29, body:"#4A4340", shade:"#332E2C", line:"#241F1E", ear:"shiba", earIn:"#8A6B5A", face:"shiba",  sm:"tongue", eye:"sparkle", acc:"sparkle", fluff:14, amp:.03, hi:"#7A716C", tan:"#F3E2C8" },
+  { name:"ねこ",     r:26, body:"#FFFAF4", shade:"#F0E5DC", line:"#D6C4B6", ear:"cat",   earIn:"#FFAFC9", face:"cat",    sm:"nyan",   eye:"arc",     acc:"star",    fluff:14, amp:.034, mike:true, mikeA:"#F2A85E", mikeB:"#4A403C" },
+  { name:"ひよこ",   r:22, body:"#FFE889", shade:"#FBD25B", line:"#DDAE33", ear:"tuft",  earIn:"#FBD25B", face:"chick",  sm:"beak",   eye:"sparkle", acc:"note",    fluff:13, amp:.036 },
+  
+  // ウサギ：ブタより うすい ピンク。ΔE で はなれているか かならず はかること。
+  { name:"ウサギ",   r:32, body:"#F8CFEF", shade:"#EDB2E0", line:"#D28FC6", ear:"long",  earIn:"#FF9FC4", face:"cat",      sm:"bunny",  eye:"sparkle", acc:"star",   fluff:13, amp:.035, hi:"#FDE6F8" },
+  // パンダ：ear:"panda" は そんざいしない 種類で みみが 出ていなかった。
+  //         round＋earA（くろ）に する。リボンは この子だけ。
+  { name:"パンダ",   r:28, body:"#FFFEF8", shade:"#E8E6E2", line:"#B9B2AC", ear:"round", earIn:"#5A4F4A", face:"panda",    sm:"nihera", eye:"sparkle", acc:"note",   fluff:15, amp:.032, earA:"#3B3330", earL:"#241F1E", ribbon:true },
+  { name:"ブタ",     r:25, body:"#FFA9BB", shade:"#F2879D", line:"#D96A82", ear:"pig",   earIn:"#FFD3DC", face:"pig",      sm:"piggy",  eye:"sparkle", acc:"heart",  fluff:14, amp:.036, hi:"#FFC6D3" },
+
+  { name:"くま",     r:44, body:"#B98457", shade:"#9A6A42", line:"#7A5233", ear:"round", earIn:"#E7C9A8", face:"dog",      sm:"tooth",  eye:"sparkle", acc:"heart2", fluff:15, amp:.030, hi:"#D3A377" },
+  // ひつじ：もこもこ＝ベージュ、かお＝くろ、つの＝きいろ
+  // ひつじ：みみを くろ(#3B3330)に して いた ときは、大きな 黒い たれみみが
+  //         もこもこより 目立って、小さく すると パンダに 見えた。
+  //         つのも みみの かげに 隠れて いた。みみは 体より すこし こい
+  //         ベージュ＋内がわ うすピンクに して、つのを 前に 出して ある。
+  { name:"ひつじ",   r:40, body:"#E8D6AE", shade:"#CFB98C", line:"#A8926A", ear:"floppy",earIn:"#E8C7BC", face:"sheep",    sm:"grin",   eye:"sparkle", acc:"note",   fluff:11, amp:.13, puff:.26, faceR:.74, hi:"#F4E8CC",
+    faceB:"#FFFDF8", faceS:"#F0E8DA", faceL:"#C4B394", hornC:"#F7D157", hornL:"#C9992B", muzzle:"#FBF5EA", earA:"#C9AC80", earL:"#93764F" },
+  // めじろ：みどり。とりに 見せる 手がかりは くちばし・目のわっか・おばね の 3つ。
+  //   くちばしは まえ まっくろで ふとく、やじるしに 見えた → ほそく 灰茶に した。
+  //   おばねは 体の 内がわに あって 見えて いなかった → そとへ 出した。
+  { name:"めじろ",   r:27, body:"#9BCB52", shade:"#7FAE3A", line:"#61892A", ear:"none",  earIn:"#D8E9B0", face:"mejiro",   sm:"beak",   eye:"sparkle", acc:"note",   fluff:13, amp:.020, hi:"#C6E394",
+    beakA:"#8C5A5E", beakB:"#4A423C", beakLong:true, wingC:"#5F8F2A" },
+  // ぞう：とても うすい 水いろ。はなは 顔の 内がわで 完結させてある。
+  //   みみは 体と 明るさが 近くて シルエットに とけて いた（ただの 横長の かたまりに 見えた）ので
+  //   ひとだん こい 色に して、すこし 上に ずらして ある。
+  { name:"ぞう",     r:46, body:"#B7E4FA", shade:"#8CCAEE", line:"#5AA3D2", ear:"elephant", earIn:"#8FC9EC", face:"elephant", sm:"none", eye:"sparkle", acc:"note",   fluff:16, amp:.030, hi:"#D8F0FD", earA:"#6FB4DE", earL:"#4B90BE" },
+  { name:"きつね",   r:34, body:"#E8762B", shade:"#CB5C18", line:"#A2460F", ear:"fox",   earIn:"#F8D7B0", face:"fox",      sm:"nyan",   eye:"arc",     acc:"sparkle",fluff:11, amp:.028, hi:"#F59A55", tan:"#FFF6EC", earTip:"#3B3330" },
+  // たぬき：panda の 目のまわりを こげ茶に して つかう（リボンは なし）
+  //   patchC が 体と 近すぎて 顔ぜんたいが 茶いろの かたまりに 見えて いた。
+  //   ぶちを ぐっと 暗く し、くちの まわりに うすい マズルを 入れて 面を 割って ある。
+  { name:"たぬき",   r:36, body:"#9C8670", shade:"#7D6A58", line:"#5A4B3D", ear:"round", earIn:"#C9B39C", face:"panda",    sm:"tooth",  eye:"sparkle", acc:"star",   fluff:15, amp:.033, hi:"#B8A18A",
+    patchC:"#33271E", earA:"#5F4F41", earL:"#3C3027", muzzle:"#EFE2D2" },
+
+];
+
+/* ============================================================
+   シークレットの 3体
+   ------------------------------------------------------------
+   `ALL_CHARACTERS` の **うしろに** つないで、`secret: true` で しるしを つける。
+   - **うしろに つなぐ こと。** `DEFAULT_TIERS = ALL_CHARACTERS.slice(0, 6)` が
+     もとの 6体を 見て いる ので、まえに 入れると 既定の 顔ぶれが 変わる。
+   - えらび画面は `isUsable()` が false の 子を とばす ので、
+     解放するまで **1枚も 出ない**。
+   - 解放は あいことば（`い` / `ユニコーン` / `たつ`）。
+     `localStorage: mamemaru-unlocked` に 名前で ためる ので ずっと のこる。
+   絵の 確認は `node tools/render-secret.js`。
+
+   色の えらび方：15体で 空いて いたのは **むらさき・濃い緑・赤**。
+   - いのしし … こげ茶だが **クリームの よこじま**で くま・たぬきと 分ける
+                （うし・パンダ・ねこが 白を 模様で 分けて いるのと 同じ）
+   - ユニコーン … むらさき。15体で だれも つかって いない
+   - ドラゴン … 青みどり。めじろ（黄みどり）と はっきり ちがう
+   ============================================================ */
+const SECRET_CHARACTERS = [
+  // 体の 色は **くま(#B98457) から はなす** のが 条件。
+  // さいしょ #9A6A44 に して いたが くま と ΔE 11.0 しか なかった。
+  // うり坊 らしい 赤みの ある 栗色に して ΔE 19.8（たぬきとも 31.1）。
+  { secret:true, name:"いのしし", r:38, body:"#96522E", shade:"#7C401F", line:"#5A2C13", ear:"boar",
+    earIn:"#C08A6A", face:"boar", sm:"grin", eye:"sparkle", acc:"star", fluff:14, amp:.032,
+    hi:"#AE6B42", tan:"#F5E3C6", snout:"#9E7060", earA:"#874628", earTip:"#5A2C13" },
+  // 白。うし・パンダ・ねこ と 同じ 白系だが、**にじいろの たてがみ**が
+  // 模様として 効く（うし＝ぶち、パンダ＝目のぶち、ねこ＝三毛 と 同じ 考え方。
+  // テスト H も `earA` を 持つ子を 模様もちと して 見のがす）。
+  // ベージュに した ことも あるが、**ベージュ枠は ひつじ(#E8D6AE) の もの**で、
+  // ふつうの クリーム系は どれも ひつじと ΔE 2〜11 しか なかった。
+  { secret:true, name:"ユニコーン", r:33, body:"#FFFCF6", shade:"#F2E6DE", line:"#D4C2B8", ear:"unicorn",
+    earIn:"#FFC2D6", face:"unicorn", sm:"nyan", eye:"sparkle", acc:"sparkle", fluff:13, amp:.030,
+    hi:"#FFFFFF", hornC:"#FFE08A", hornL:"#C79A2E", earA:"#F7EAE4",
+    muzzle:"#FCE6DE" },
+  { secret:true, name:"ドラゴン", r:42, body:"#5FB59A", shade:"#469680", line:"#2F7562", ear:"none",
+    earIn:"#A8DCC9", face:"dragon", sm:"tooth", eye:"sparkle", acc:"note", fluff:15, amp:.034,
+    hi:"#8ACFB8", tan:"#FFF0CE", spike:"#E9C46A", hornC:"#F0D08A", hornL:"#B8873A" },
+];
+// **うしろに つなぐ。** まえに 入れると DEFAULT_TIERS（もとの 6体）が ずれる。
+SECRET_CHARACTERS.forEach(c => ALL_CHARACTERS.push(c));
+
+/* 解放ずみの シークレット。名前で ためる。 */
+let unlockedChars = [];
+try {
+  const u = JSON.parse(localStorage.getItem("mamemaru-unlocked") || "[]");
+  if (Array.isArray(u)) unlockedChars = u.filter(n => typeof n === "string");
+} catch(e){}
+
+/* ============================================================
+   キャラ描画（ふわふわ）
+   ============================================================ */
+// もこもこ輪郭（ひつじ用）。正弦波は 山を ふやすほど 細く 深く なって
+// とがって 見える（ふかさ÷はば が 0.6 を こえると ギザギザ）。
+// かわりに まるを ぐるっと ならべて、となりと 交わる ところで つないで いく。
+// こうすると 山が 円弧に なるので ふかさ÷はば が 0.24 に なり もこもこ する。
+function puffPath(g, r, n, rpFrac, phase){
+  // phase を まわす 角に つかっては いけない。
+  // 正弦波の 輪郭では phase は 山が ゆっくり 波うつ ための ずれ だが、
+  // ここで 同じ ことを すると まる 11こが まとめて まわり、
+  // からだごと 回転して 見える（いちど やって しまった）。
+  // いきた かんじは 「まるの 大きさが すこし ふくらむ」 で 出す。
+  const rp = r * rpFrac * (1 + .055*Math.sin(phase));
+  const rc = r - rp;              // そとの はしは いつも r
+  const D  = Math.PI*2 / n;
+  const d  = 2 * rc * Math.sin(D/2);
+  if (rp <= d/2){                 // つながらない ときは 正弦波に にげる
+    fluffPath(g, r, n, rpFrac*.5, phase);
+    return;
+  }
+  const phi = Math.acos((d/2) / rp);   // 交点の 中心からの ずれ角
+  const H = Math.PI/2;
+  g.beginPath();
+  for (let i = 0; i < n; i++){
+    const th = i*D;                    // ← phase を たさない
+    const cx = Math.cos(th)*rc, cy = Math.sin(th)*rc;
+    // となりの 中心への むきは th ± (D/2 + 90度)。
+    // そとがわの 交点は そこから phi を 「ひいた」 ほう（数値で たしかめた）。
+    const a0 = th - D/2 - H + phi;     // まえの まるとの 交点
+    const a1 = th + D/2 + H - phi;     // つぎの まるとの 交点
+    g.arc(cx, cy, rp, a0, a1);
+  }
+  g.closePath();
+}
+
+function fluffPath(g, r, bumps, amp, phase){
+  // でこぼこ 1つあたり 4点あれば なめらかに 見える（ちいさい子は 点を へらす）
+  const steps = Math.max(24, Math.min(96, Math.round(Math.max(r * 1.0, bumps * 4))));
+  g.beginPath();
+  for (let i = 0; i <= steps; i++){
+    const a = i/steps * Math.PI*2;
+    const rr = r * (1 - amp + amp*Math.sin(a*bumps + phase));
+    const x = Math.cos(a)*rr, y = Math.sin(a)*rr;
+    if (i === 0) g.moveTo(x,y); else g.lineTo(x,y);
+  }
+  g.closePath();
+}
+
+/* ============================================================
+   わらいがお（かわいさ重視：口はちいさく、目はぱっちりのまま）
+   ============================================================ */
+const MC = "#8C5A5E";        // やわらかい口の色
+const TG = "#FFA6BA";        // した
+
+/* 5つの とがりの 星を ぬる。`inner` を わたさなければ とがりの 深さは s の .44。
+   **星は ぜんぶ これで えがく こと**（まえは 6か所に 同じ ループが あった）。 */
+function starG(g, x, y, s, inner){
+  const si = (inner == null) ? s*.44 : inner;
+  g.beginPath();
+  for (let i = 0; i < 10; i++){
+    const a = -Math.PI/2 + i*Math.PI/5, rr = (i%2) ? si : s;
+    const px = x + Math.cos(a)*rr, py = y + Math.sin(a)*rr;
+    if (i) g.lineTo(px, py); else g.moveTo(px, py);
+  }
+  g.closePath(); g.fill();
+}
+/* ねこの ひげ（どの 表情でも 同じ。4か所から よぶ） */
+function drawWhiskers(g, r){
+  g.strokeStyle = "rgba(120,90,75,.55)"; g.lineWidth = Math.max(.8, r*.03);
+  for (const s2 of [-1,1]) for (const o of [-.09, .04]){
+    g.beginPath();
+    g.moveTo(s2*r*.5, r*.15 + r*o);
+    g.lineTo(s2*r*.92, r*.1 + r*o*1.6);
+    g.stroke();
+  }
+}
+function noteG(g, x, y, s){
+  g.beginPath(); g.ellipse(x - s*.26, y + s*.52, s*.34, s*.26, -.35, 0, 7); g.fill();
+  g.beginPath();
+  g.moveTo(x + s*.02, y + s*.52); g.lineTo(x + s*.02, y - s*.6);
+  g.lineTo(x + s*.5, y - s*.34); g.lineTo(x + s*.5, y - s*.08);
+  g.lineTo(x + s*.2, y - s*.28); g.lineTo(x + s*.2, y + s*.52);
+  g.closePath(); g.fill();
+}
+
+/* ============================================================
+   かおの「くち・はな」の きまり。**ここが 唯一の 出どころ。**
+
+   まえは「この かおは くちを えがかない」の 判定が
+     ①ふだんの かお ②びっくりの かお ③せり上がりの かお
+   の 3か所に ばらばらに 書いて あって、表情を ふやすたびに
+   ぞうに 口が 生えた（`T.face === "elephant"` の 書き忘れ）。
+   表情を ふやす ときは、この 関数を 呼ぶだけ に すること。
+   あたらしく「口の ない子」を 出す ときも ここに 1行 足せば すむ。
+   ============================================================ */
+function mouthRule(T){
+  // くちを いっさい えがかない かお（ぞう＝はなが くちの ばしょを とおる）
+  const noMouth = (T.face === "elephant");
+  // **口が 大きな はなの 下に くる かお。** 2種類 ある：
+  //   "snout" … ぶたばな（ぶた・いのしし）  "chin" … はなづらが たてに 長い（こあら・うし）
+  // 口の 高さを きめる ところ（ふだん・びっくり・せり上がり・あくび の 4か所）は
+  // かならず これを 見る こと。まえは 4か所に 顔の 名前を じかに 書いて いた。
+  const lowMouth = (T.face === "pig" || T.face === "boar") ? "snout"
+                 : (T.face === "koala" || T.face === "cow") ? "chin" : null;
+  // すでに 大きな はなが あって、はなの すじだけ 足す かお（＝口が はなの 下に くる かお）
+  const bigNose = !!lowMouth;
+  return {
+    noMouth,
+    bigNose,
+    lowMouth,
+    // ちいさな 黒い はなの 点を 置かない かお
+    noNoseDot: noMouth || bigNose || T.face === "cat" || T.face === "dog",
+  };
+}
+
+/* ちいさく にっこりした 口もと */
+function drawSmileMouth(g, T, r){
+  // 口の ない かおは ここで 打ち切る。T.sm の 書きまちがいでも 口は 生えない。
+  if (mouthRule(T).noMouth) return;
+  g.lineCap = "round"; g.lineJoin = "round";
+  switch (T.sm){
+
+    case "none": break;     // 口を えがかない（mouthRule でも 止めて ある）
+
+    case "grin": {          // しろくま：ちいさく ぱくっ
+      const my = r*.17, w = r*.135, h = r*.155;
+      g.fillStyle = MC;
+      g.beginPath();
+      g.moveTo(-w, my);
+      g.quadraticCurveTo(-w*.55, my - r*.045, 0, my - r*.04);
+      g.quadraticCurveTo(w*.55, my - r*.045, w, my);
+      g.quadraticCurveTo(0, my + h, -w, my);
+      g.closePath(); g.fill();
+      g.fillStyle = TG;
+      g.beginPath();
+      g.moveTo(-w*.5, my + h*.42);
+      g.quadraticCurveTo(0, my + h*1.0, w*.5, my + h*.42);
+      g.closePath(); g.fill();
+      break;
+    }
+
+    case "nihera": {        // ぱんだ：ふにゃっと にへら
+      const my = r*.21;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1.1, r*.052);
+      g.beginPath();
+      g.moveTo(-r*.155, my - r*.035);
+      g.quadraticCurveTo(-r*.075, my + r*.075, 0, my + r*.025);
+      g.quadraticCurveTo(r*.075, my + r*.075, r*.155, my - r*.035);
+      g.stroke();
+      break;
+    }
+
+    case "tooth": {         // くま：まえ歯 ちょこん
+      const my = r*.19, w = r*.12, h = r*.13;
+      g.fillStyle = MC;
+      g.beginPath();
+      g.moveTo(-w, my);
+      g.quadraticCurveTo(0, my - r*.05, w, my);
+      g.quadraticCurveTo(0, my + h, -w, my);
+      g.closePath(); g.fill();
+      g.fillStyle = "#FFFFFF";     // ちいさい まえ歯 ひとつ
+      g.beginPath();
+      g.moveTo(-w*.3, my - r*.018);
+      g.lineTo(w*.3, my - r*.018);
+      g.quadraticCurveTo(w*.3, my + h*.42, 0, my + h*.42);
+      g.quadraticCurveTo(-w*.3, my + h*.42, -w*.3, my - r*.018);
+      g.closePath(); g.fill();
+      break;
+    }
+
+    case "tongue": {        // いぬ：ちろっと べろ
+      const my = r*.25;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1, r*.046);
+      g.beginPath();
+      g.moveTo(-r*.125, my - r*.03);
+      g.quadraticCurveTo(0, my + r*.085, r*.125, my - r*.03);
+      g.stroke();
+      g.fillStyle = TG;
+      g.beginPath();
+      g.moveTo(-r*.055, my + r*.035);
+      g.quadraticCurveTo(0, my + r*.2, r*.055, my + r*.035);
+      g.quadraticCurveTo(0, my + r*.075, -r*.055, my + r*.035);
+      g.closePath(); g.fill();
+      break;
+    }
+
+    case "bunny": {         // うさぎ：Y の口が きゅっと あがる
+      const my = r*.2;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1, r*.046);
+      g.beginPath(); g.moveTo(0, my - r*.115); g.lineTo(0, my - r*.03); g.stroke();
+      g.beginPath();
+      g.moveTo(-r*.15, my - r*.075);
+      g.quadraticCurveTo(-r*.07, my + r*.05, 0, my - r*.025);
+      g.quadraticCurveTo(r*.07, my + r*.05, r*.15, my - r*.075);
+      g.stroke();
+      break;
+    }
+
+    case "cow": {           // うし：はなづらの 下に ちいさく
+      const my = r*.62;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1.1, r*.05); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-r*.10, my - r*.03);
+      g.quadraticCurveTo(0, my + r*.07, r*.10, my - r*.03);
+      g.stroke();
+      break;
+    }
+
+    case "koala": {         // こあら：大きな はなの 下に ちいさく
+      const my = r*.62;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1.1, r*.05); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-r*.10, my - r*.03);
+      g.quadraticCurveTo(0, my + r*.07, r*.10, my - r*.03);
+      g.stroke();
+      break;
+    }
+
+    case "piggy": {         // ぶた：はなの 下に ちょこんと
+      const my = r*.58;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1.1, r*.05);
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-r*.115, my - r*.03);
+      g.quadraticCurveTo(0, my + r*.07, r*.115, my - r*.03);
+      g.stroke();
+      break;
+    }
+
+    case "nyan": {          // ねこ：ふわっと ω
+      const my = r*.21;
+      g.strokeStyle = MC; g.lineWidth = Math.max(1.1, r*.05);
+      g.beginPath();
+      g.arc(-r*.085, my, r*.09, Math.PI*.02, Math.PI*.98);
+      g.moveTo(r*.175, my);
+      g.arc(r*.085, my, r*.09, Math.PI*.02, Math.PI*.98);
+      g.stroke();
+      break;
+    }
+
+    default: {              // ひよこ／めじろ：くちばし ちょこっと ぱか
+      const my = r*.16;
+      // beakA/beakB で 色を 変えられる（めじろは くろ）
+      // した（あいた ところ）。ほそながい くちばしの 子は はばも ほそく する。
+      const bw = T.beakLong ? .062 : .115, bh = T.beakLong ? .17 : .25;
+      g.fillStyle = T.beakA || "#E07A20";
+      g.beginPath();
+      g.moveTo(-r*bw, my + r*.075);
+      g.lineTo(r*bw, my + r*.075);
+      g.quadraticCurveTo(0, my + r*bh, -r*bw, my + r*.075);
+      g.closePath(); g.fill();
+      g.fillStyle = T.beakB || "#FF9E3D";
+      g.beginPath();
+      if (T.beakLong){
+        // とりらしく ほそく、すこし 下に そらせる。
+        // まえは はば .085r・ながさ .30r・まっくろ で、かおの まんなかに
+        // くろい やじるしが ある ように 見えて いた。ほそく 短く して、
+        // ふちを なめらかな 曲線に する と くちばしに 見える。
+        g.moveTo(-r*.058, my - r*.09);
+        g.quadraticCurveTo(-r*.030, my + r*.10, r*.005, my + r*.21);
+        g.quadraticCurveTo( r*.045, my + r*.09, r*.058, my - r*.09);
+        g.closePath(); g.fill();
+        g.strokeStyle = T.beakA || "#E07A20";
+        g.lineWidth = Math.max(1, r*.024);
+        g.beginPath();
+        g.moveTo(-r*.058, my - r*.09); g.lineTo(r*.058, my - r*.09);
+        g.stroke();
+      } else {
+        g.moveTo(-r*.135, my + r*.06);
+        g.lineTo(r*.135, my + r*.06);
+        g.lineTo(0, my - r*.13);
+        g.closePath(); g.fill();
+      }
+      break;
+    }
+  }
+}
+
+/* よこに ふわっと出る かざり */
+function drawAccent(g, T, r, a, phase){
+  const bob = Math.sin(phase*3.1)*r*.05;
+  g.save();
+  g.globalAlpha = .92*a;
+  switch (T.acc){
+    case "heart2":
+      g.fillStyle = "#FF8FB4"; drawHeart(g, -r*.9, -r*.66 + bob, r*.2);
+      g.fillStyle = "#FFB9D0"; drawHeart(g,  r*.92, -r*.44 - bob, r*.14);
+      break;
+    case "heart":
+      g.fillStyle = "#FF8FB4"; drawHeart(g, r*.92, -r*.6 + bob, r*.19);
+      break;
+    case "note":
+      g.fillStyle = "#8FBEEA"; noteG(g, r*.94, -r*.56 + bob, r*.24);
+      break;
+    case "star":
+      g.fillStyle = "#FFD86B"; starG(g, r*.96, -r*.58 + bob, r*.2);
+      g.fillStyle = "#FFEBA8"; starG(g, -r*.9, -r*.4 - bob, r*.12);
+      break;
+    default:
+      sparkle4(g, -r*.92, -r*.6 + bob, r*.2, "rgba(255,236,140,.95)");
+      sparkle4(g,  r*.95, -r*.4 - bob, r*.13, "rgba(255,255,255,.9)");
+  }
+  g.restore();
+}
+
+function sparkle4(g, x, y, s, col){
+  g.fillStyle = col;
+  g.beginPath();
+  g.moveTo(x, y - s);
+  g.quadraticCurveTo(x + s*.16, y - s*.16, x + s, y);
+  g.quadraticCurveTo(x + s*.16, y + s*.16, x, y + s);
+  g.quadraticCurveTo(x - s*.16, y + s*.16, x - s, y);
+  g.quadraticCurveTo(x - s*.16, y - s*.16, x, y - s);
+  g.fill();
+}
+
+/* おどろいた ときの まわりの かざり */
+function drawShock(g, r, a, phase){
+  g.save();
+  g.globalAlpha = .95*a;
+  const bob = Math.sin(phase*9)*r*.03;
+  // ！マーク
+  g.save();
+  g.translate(r*.92, -r*.66 + bob); g.rotate(.2);
+  g.fillStyle = "#FF7E9B";
+  g.beginPath();
+  g.moveTo(-r*.05, -r*.2); g.lineTo(r*.05, -r*.2);
+  g.lineTo(r*.032, r*.04); g.lineTo(-r*.032, r*.04);
+  g.closePath(); g.fill();
+  g.beginPath(); g.arc(0, r*.135, r*.048, 0, 7); g.fill();
+  g.restore();
+  // ぽわっと でる まる
+  g.fillStyle = "rgba(255,255,255,.9)";
+  for (let i = 0; i < 3; i++){
+    const ang = Math.PI*1.05 + i*0.3;
+    const dd = r*(1.02 + i*.06);
+    g.beginPath();
+    g.arc(Math.cos(ang)*dd, Math.sin(ang)*dd - bob, r*(.075 - i*.016), 0, 7);
+    g.fill();
+  }
+  g.restore();
+}
+
+/* せり上がりで びっくりした ときの かざり（あせ＋もちあがる線） */
+function drawShock2(g, r, a, phase){
+  g.save();
+  g.globalAlpha = .95*a;
+  const bob = Math.sin(phase*11)*r*.025;
+  // あせ
+  g.save();
+  g.translate(r*.86, -r*.6 + bob);
+  g.fillStyle = "#8FD4F5";
+  g.beginPath();
+  g.moveTo(0, -r*.22);
+  g.quadraticCurveTo(r*.135, -r*.02, r*.115, r*.075);
+  g.quadraticCurveTo(r*.075, r*.2, 0, r*.2);
+  g.quadraticCurveTo(-r*.075, r*.2, -r*.115, r*.075);
+  g.quadraticCurveTo(-r*.135, -r*.02, 0, -r*.22);
+  g.closePath(); g.fill();
+  g.fillStyle = "rgba(255,255,255,.85)";
+  g.beginPath(); g.ellipse(-r*.04, r*.055, r*.032, r*.048, -.3, 0, 7); g.fill();
+  g.restore();
+  // もちあげられてる線
+  g.strokeStyle = "rgba(255,255,255,.85)";
+  g.lineWidth = Math.max(1, r*.045); g.lineCap = "round";
+  for (let i = -1; i <= 1; i++){
+    const lx = i*r*.4;
+    g.beginPath();
+    g.moveTo(lx, r*1.02 + Math.abs(i)*r*.06);
+    g.lineTo(lx, r*1.02 + Math.abs(i)*r*.06 + r*(.22 - Math.abs(i)*.06));
+    g.stroke();
+  }
+  g.restore();
+}
+
+function drawCreature(g, tier, r, phase, blinkAmt, sq, sm, su, sk, zz, dw, yw, fp){
+  // 【3D版で 足した】fp＝もこもこ輪郭だけの ずれ。転がると 輪郭の でこぼこが まわって 見える。
+  //  顔は まわさない。わたさなければ 本体と まったく 同じ 絵。
+  const cp = (fp === undefined) ? phase : fp;
+  zz = zz || 0;                 // ねむり ぐあい（0..1）
+  dw = dw || 0;                 // ねむそう（0..1）まぶたが 下りてくる
+  yw = yw || 0;                 // あくび（0..1）
+  const T = TIERS[tier];
+  const MR = mouthRule(T);      // くち・はなの きまり（唯一の 出どころ。上の 関数を 見ること）
+  sm = sm || 0;
+  const suv = su || 0;
+  const kind = sk || 1;
+  const bounce = (sm > 0 && suv <= 0) ? 1 + .035*Math.sin(phase*6.4)*sm : 1;
+  // びっくり＝たてに のびる ／ せり上がり＝ぺたっと ちぢむ
+  const stretch = kind === 2 ? 1 - .12*suv : 1 + .13*suv;
+  const sy = (1 + sq) * bounce * stretch;
+  const sx = (1 - sq*0.75) / (bounce*.5 + .5) / (stretch*.55 + .45);
+  g.save();
+  if (suv > 0) g.rotate(Math.sin(phase*(kind === 2 ? 23 : 17)) * (kind === 2 ? .05 : .03) * suv);
+  else if (sm > 0) g.rotate(Math.sin(phase*2.9) * .075 * sm);   // ふりふり
+  g.scale(sx, sy);
+
+  // みみ（うしろ）
+  g.lineWidth = Math.max(1, r*0.045);
+  g.strokeStyle = T.line;
+
+  // みみの そとがわは ふつう body。earA が あれば そちらを つかう
+  // （ぱんだの 黒いみみ など）。earL で ふちの 色も 変えられる。
+  if (T.earL){ g.strokeStyle = T.earL; }
+  if (T.ear === "round"){
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.62, -r*.68);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath(); g.arc(0,0, r*.34, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath(); g.arc(0, r*.04, r*.17, 0, 7); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "long"){
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.30, -r*1.12); g.rotate(s*0.13);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath(); g.ellipse(0,0, r*.17, r*.78, 0, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath(); g.ellipse(0, r*.02, r*.085, r*.58, 0, 0, 7); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "cat"){
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.56, -r*.62); g.rotate(s*0.25);
+      g.fillStyle = (T.mike && s > 0) ? T.mikeA : (T.earA || T.body);   // みけは 右みみが オレンジ
+      g.beginPath();
+      g.moveTo(-r*.26, r*.2); g.lineTo(0, -r*.36); g.lineTo(r*.26, r*.2);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(-r*.13, r*.14); g.lineTo(0, -r*.16); g.lineTo(r*.13, r*.14);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "cow"){
+    // つの（ちいさく、やさしい 色。とがらせない）
+    g.fillStyle = "#F2E3C8";
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.31, -r*.88); g.scale(s, 1); g.rotate(-.30);
+      g.beginPath();
+      g.moveTo(-r*.085, r*.12);
+      g.quadraticCurveTo(-r*.10, -r*.20, r*.05, -r*.25);
+      g.quadraticCurveTo(r*.13, -r*.18, r*.085, r*.12);
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    // よこに はりだした たれみみ。ぶちと つながる みぎがわは 黒い
+    for (const s of [-1, 1]){
+      const dark = (s > 0);
+      g.save(); g.translate(s*r*.80, -r*.30); g.scale(s, 1); g.rotate(.34);
+      g.fillStyle   = dark ? (T.cowA || "#3B3330") : (T.earA || T.body);
+      g.strokeStyle = dark ? (T.cowA || "#3B3330") : T.line;
+      g.beginPath(); g.ellipse(0, 0, r*.38, r*.20, 0, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = dark ? "#D98FA6" : T.earIn;
+      g.beginPath(); g.ellipse(r*.03, 0, r*.24, r*.11, 0, 0, 7); g.fill();
+      g.restore();
+    }
+    g.strokeStyle = T.line;
+  } else if (T.ear === "koala"){
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.72, -r*.22);
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      for (let i = 0; i <= 44; i++){
+        const a = i/44*Math.PI*2;
+        const rr = r*.50 * (1 - .11 + .11*Math.sin(a*9));
+        const x = Math.cos(a)*rr, y = Math.sin(a)*rr;
+        if (i === 0) g.moveTo(x,y); else g.lineTo(x,y);
+      }
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earA || T.body;
+      g.beginPath(); g.arc(0, 0, r*.28, 0, 7); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "pig"){
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.58, -r*.66); g.rotate(s*0.34);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath();
+      g.moveTo(-r*.26, r*.20);
+      g.quadraticCurveTo(-r*.24, -r*.20, r*.02, -r*.30);
+      g.quadraticCurveTo(r*.22, -r*.16, r*.26, r*.20);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(-r*.13, r*.15);
+      g.quadraticCurveTo(-r*.11, -r*.08, r*.01, -r*.16);
+      g.quadraticCurveTo(r*.11, -r*.06, r*.13, r*.15);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "shiba"){
+    // しばの 立ちみみ。ねこより はば広で、さきが すこし まるい
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.58, -r*.66); g.rotate(s*0.18);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath();
+      g.moveTo(-r*.30, r*.22);
+      g.quadraticCurveTo(-r*.20, -r*.30, 0, -r*.40);
+      g.quadraticCurveTo(r*.20, -r*.30, r*.30, r*.22);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(-r*.15, r*.16);
+      g.quadraticCurveTo(-r*.09, -r*.12, 0, -r*.20);
+      g.quadraticCurveTo(r*.09, -r*.12, r*.15, r*.16);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "elephant"){
+    // ぞうの おおきな たれみみ。
+    // ここは 2どしくじっている ので 理由を のこす：
+    //   1) そとの はしが 1.02r しか なく、ほとんどが からだに かさなって いた
+    //   2) earA を body と ほぼ 同じ 色に して いたので とけて 見えなかった
+    // → はしを たれみみ(floppy) と 同じ 1.22r まで 出し、色も はっきり 分ける。
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.80, -r*.12); g.scale(s, 1);
+      g.fillStyle = T.earA || T.shade;
+      g.beginPath();
+      // 上は ひろく、下に いくほど すぼんで たれる
+      g.moveTo(-r*.26, -r*.56);
+      g.quadraticCurveTo(r*.34, -r*.62, r*.42, -r*.14);
+      g.quadraticCurveTo(r*.48,  r*.30, r*.16,  r*.56);
+      g.quadraticCurveTo(-r*.06, r*.70, -r*.20, r*.46);
+      g.quadraticCurveTo(-r*.30, r*.10, -r*.26, -r*.56);
+      g.closePath(); g.fill(); g.stroke();
+      // みみの うちがわ（ふちを のこして ひとまわり 小さく）
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(-r*.14, -r*.42);
+      g.quadraticCurveTo(r*.22, -r*.46, r*.28, -r*.10);
+      g.quadraticCurveTo(r*.32,  r*.22, r*.08,  r*.40);
+      g.quadraticCurveTo(-r*.06, r*.48, -r*.12, r*.30);
+      g.quadraticCurveTo(-r*.18, r*.04, -r*.14, -r*.42);
+      g.closePath(); g.fill();
+    g.restore();
+    }
+  } else if (T.ear === "fox"){
+    // きつねの みみ。しばより 高く ほそく、さきが とがって いて 先が くろい。
+    // しばの まるい 立ちみみと はっきり 分ける ための かたち。
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.52, -r*.74); g.rotate(s*0.20);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath();
+      g.moveTo(-r*.24, r*.26);
+      g.lineTo(0, -r*.62);
+      g.lineTo(r*.24, r*.26);
+      g.closePath(); g.fill(); g.stroke();
+      // さきの くろ
+      g.fillStyle = T.earTip || "#3B3330";
+      g.beginPath();
+      g.moveTo(-r*.105, -r*.24);
+      g.lineTo(0, -r*.62);
+      g.lineTo(r*.105, -r*.24);
+      g.closePath(); g.fill();
+      // 内がわ
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(-r*.115, r*.18);
+      g.lineTo(0, -r*.28);
+      g.lineTo(r*.115, r*.18);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "boar"){
+    // うり坊：ちいさい 立ちみみ。さきが こい。1.10r いない
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.56, -r*.70); g.rotate(s*0.22);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath();
+      g.moveTo(-r*.19, r*.20); g.lineTo(0, -r*.34); g.lineTo(r*.19, r*.20);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earTip || T.line;
+      g.beginPath();
+      g.moveTo(-r*.085, -r*.06); g.lineTo(0, -r*.34); g.lineTo(r*.085, -r*.06);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "unicorn"){
+    // **たてがみは ここで えがく（＝体の うしろ）。**
+    // かおの 段で えがいて、ねもとを 体の色の まるで ふさいで いた ときは、
+    // その まるの ふちが そのまま 見えて、**もこもこ輪郭の 中に
+    // つるんとした 円が 浮いて いる** ように なった。
+    // うしろに 置けば、体の もこもこ輪郭が そのまま ねもとを かくす。
+    {
+      // **ひだりへ ながす。ふっさりと。**
+      // まうえに そろえて 7つ ならべて いた ときは、たてがみでは なく
+      // **色の ついた ぼうし**に 見えた。いまは 13房 ×2そう かさねて、
+      // ひだり(9時の 方向)から あたまの 上まで 弧を えがく。
+      // **さいだいの のび は .88 + .245*1.25 = 1.19r（1.22r を こえない）。**
+      const MANE = ["#FF9EC0","#FFB6A8","#FFD79A","#FFF2A6","#B8EBBE","#A8D9F2","#C6BCF5"];
+      const N = 13, A0 = -Math.PI*0.97, A1 = -Math.PI/2 + .45;
+      for (let layer = 0; layer < 2; layer++){
+        for (let i = 0; i < N; i++){
+          const a = A0 + (A1 - A0) * (i + (layer ? .5 : 0)) / (N - 1);
+          const len = 1.25 - i * .033;               // ひだりほど ながい
+          const d   = layer ? .95 : .88;
+          const sc  = layer ? .74 : 1;
+          g.fillStyle = MANE[(i + layer*3) % MANE.length];
+          g.save();
+          g.translate(Math.cos(a) * r * d, Math.sin(a) * r * d);
+          g.rotate(a + Math.PI/2);
+          g.beginPath(); g.ellipse(0, 0, r*.135*(layer?.85:1), r*.245*len*sc, 0, 0, 7); g.fill();
+          g.restore();
+        }
+      }
+    }
+    // みみ：ほそい 木の葉がた。つのの じゃまを しないよう そとに ひらく
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.62, -r*.62); g.rotate(s*0.55);
+      g.fillStyle = T.earA || T.body;
+      g.beginPath();
+      g.moveTo(0, r*.26);
+      g.quadraticCurveTo(-r*.16, -r*.08, 0, -r*.34);
+      g.quadraticCurveTo(r*.16, -r*.08, 0, r*.26);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath();
+      g.moveTo(0, r*.16);
+      g.quadraticCurveTo(-r*.075, -r*.04, 0, -r*.24);
+      g.quadraticCurveTo(r*.075, -r*.04, 0, r*.16);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "floppy"){
+    // そと(earA)＋内がわ(earIn) の 2色。1色の ぬりつぶしに すると、
+    // 色が こいとき「大きな 黒い かたまり」に なって 体より 目立った。
+    // 内がわは そとがわへ ずらして 置く。ここは 体の うしろに 描かれるので、
+    // まんなかに 置くと 体に かくれて 見えない。
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.90, -r*.30); g.scale(s, 1); g.rotate(0.42);
+      g.fillStyle = T.earA || T.earIn;
+      g.beginPath(); g.ellipse(0,0, r*.26, r*.45, 0, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath(); g.ellipse(r*.055, r*.02, r*.145, r*.29, 0, 0, 7); g.fill();
+      g.restore();
+    }
+  } else if (T.ear === "tuft"){
+    g.fillStyle = T.earA || T.body; g.strokeStyle = T.line;
+    for (const o of [-.22, .22]){
+      g.beginPath();
+      g.arc(r*o, -r*1.0, r*.125, 0, 7);
+      g.fill(); g.stroke();
+    }
+    // まんなかは くるんと した アホ毛。ちいさくても シルエットで わかる
+    g.save();
+    g.strokeStyle = T.line; g.lineCap = "round"; g.lineWidth = Math.max(1.3, r*.075);
+    g.beginPath();
+    g.moveTo(0, -r*.96);
+    g.quadraticCurveTo(r*.06, -r*1.24, r*.20, -r*1.20);
+    g.quadraticCurveTo(r*.28, -r*1.17, r*.23, -r*1.08);
+    g.stroke();
+    g.restore();
+    g.fillStyle = T.earA || T.body; g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*0.045);
+    g.beginPath(); g.arc(0, -r*.98, r*.115, 0, 7); g.fill(); g.stroke();
+  }
+
+  // からだ
+  const grd = g.createRadialGradient(-r*.3, -r*.35, r*.1, 0, 0, r*1.05);
+  grd.addColorStop(0, T.hi || "#ffffff");     // くろい子は 白いツヤだと うきすぎる
+  grd.addColorStop(.35, T.body);
+  grd.addColorStop(1, T.shade);
+  g.fillStyle = grd;
+  g.strokeStyle = T.line;
+  g.lineWidth = Math.max(1, r*0.05);
+  // puff が あれば まるを ならべた もこもこ輪郭。なければ これまでの 正弦波。
+  if (T.puff) puffPath(g, r, T.fluff, T.puff, phase);   // ひつじは まわさない（本体の きまり）
+  else        fluffPath(g, r, T.fluff, T.amp, cp);
+  g.fill(); g.stroke();
+
+  // ぱんだ模様（まるっこく、ちょっと ちいさめ）
+  // ひつじ：もこもこ（＝体の輪郭）は ベージュ のまま、
+  // その 内がわに くろい かおの 円を のせる。つくりは らいおんと 同じ。
+  // つのは かおの 円より さきに えがいて、根もとを 隠す。
+  // きつね：しばの かおを 色ちがいで つかうと 犬にしか 見えない。
+  //   ちがいは 3つ。たてに ながい とがった マズル／ほおの ふさ毛／
+  //   まろまゆを つけない こと。まろまゆは しばの いちばんの とくちょう なので
+  //   きつねに つけると そこで 犬に 見える。
+  if (T.face === "fox"){
+    const TAN = T.tan || "#FFF2E2";
+    g.fillStyle = TAN;
+    // ほおの ふさ毛：ふちに そって とがった 3まいずつ
+    for (const s of [-1,1]){
+      g.save(); g.translate(s*r*.60, r*.10); g.scale(s, 1);
+      for (const k of [-1, 0, 1]){
+        g.save(); g.rotate(k*0.36 + 0.10);
+        g.beginPath();
+        g.moveTo(0, -r*.13);
+        g.quadraticCurveTo(r*.26, -r*.07, r*.40, 0);
+        g.quadraticCurveTo(r*.26,  r*.07, 0,  r*.13);
+        g.closePath(); g.fill();
+        g.restore();
+      }
+      g.restore();
+    }
+    // たてに ながい マズル（しばの まるい ものと 分ける）
+    g.beginPath();
+    g.moveTo(-r*.27, r*.16);
+    g.quadraticCurveTo(-r*.30, r*.52, 0, r*.70);
+    g.quadraticCurveTo(r*.30, r*.52, r*.27, r*.16);
+    g.quadraticCurveTo(0, r*.04, -r*.27, r*.16);
+    g.closePath(); g.fill();
+    // ひたいの 白い すじ
+    g.save(); g.globalAlpha = .45;
+    g.beginPath(); g.ellipse(0, -r*.34, r*.13, r*.26, 0, 0, 7); g.fill();
+    g.restore();
+  }
+
+  if (T.face === "sheep"){
+    // かおの 大きさは amp では なく faceR で きめる。
+    // もこもこ輪郭に した ことで amp は 輪郭に つかわれなく なった ため。
+    const R = r * (T.faceR || (1 - 2*T.amp));
+    // つの（きいろ／うずまき）
+    for (const sd of [-1, 1]){
+      g.save(); g.translate(sd*R*.72, -R*.52); g.scale(sd, 1);
+      g.lineCap = "round";
+      const hp = () => {
+        g.beginPath();
+        g.moveTo(-R*.06, -R*.10);
+        g.quadraticCurveTo(R*.34, -R*.06, R*.30, R*.22);
+        g.quadraticCurveTo(R*.26, R*.44, R*.04, R*.36);
+      };
+      g.strokeStyle = T.hornL || "#C9992B";      // ふち
+      g.lineWidth = Math.max(1.4, r*.155); hp(); g.stroke();
+      g.strokeStyle = T.hornC || "#F7D157";      // きいろ 本体
+      g.lineWidth = Math.max(1, r*.105);  hp(); g.stroke();
+      g.restore();
+    }
+    // かおの 円（くろ）
+    const gf = g.createRadialGradient(-R*.28, -R*.32, R*.1, 0, 0, R*1.05);
+    gf.addColorStop(0, T.faceB);
+    gf.addColorStop(.45, T.faceB);
+    gf.addColorStop(1, T.faceS);
+    g.fillStyle = gf; g.strokeStyle = T.faceL; g.lineWidth = Math.max(1, r*.038);
+    g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill(); g.stroke();
+    // マズル（うすい ベージュ）
+    g.fillStyle = T.muzzle || "#E9D9BC";
+    g.beginPath(); g.ellipse(0, r*.30, r*.26, r*.17, 0, 0, 7); g.fill();
+  }
+
+  // めじろ：とりだと わかる 手がかりを 3つ かさねる。
+  //   おばね（うしろに ちょこん）／はね（ひよこと 同じ かたち）／
+  //   目のまわりの 細い 白わっか。わっかを 太くすると 目玉が 大きく 見えて
+  //   とりに 見えなくなるので ほそいまま にする こと。
+  if (T.face === "mejiro"){
+    g.save();
+    g.fillStyle = T.wingC || T.shade; g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.05);
+    // おばね：ひだり下へ ななめに 出す。
+    // まえは (-.62r, .52r) から 内がわ むきに はえて いて、さきが 体の 中で
+    // 終わって いた（＝ぜんぜん 見えて いなかった）。いまは 45度 そとむきに 出し、
+    // いちばん さきが 中心から 1.19r。**1.22r を こえない こと**（となりの子に かぶる）。
+    g.save(); g.translate(-r*.56, r*.42); g.rotate(Math.PI*0.82);
+    for (const k of [-1, 0, 1]){
+      g.save(); g.rotate(k*0.22);
+      g.beginPath();
+      g.moveTo(0, -r*.075);
+      g.quadraticCurveTo(r*.34, -r*.045, r*.50, 0);
+      g.quadraticCurveTo(r*.34, r*.045, 0, r*.075);
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    g.restore();
+    // はね：ほおの 下、体の ふちの すこし 内がわに たたんで つける。
+    // ふちの ぎりぎりに 置くと もこもこ輪郭に まぎれて 見えない。
+    for (const s2 of [-1,1]){
+      g.save(); g.translate(s2*r*.72, r*.46); g.scale(s2, 1); g.rotate(.60);
+      g.beginPath();
+      g.moveTo(-r*.03, -r*.15);
+      g.quadraticCurveTo(r*.22, -r*.10, r*.19, r*.13);
+      g.quadraticCurveTo(r*.10, r*.23, -r*.04, r*.12);
+      g.closePath(); g.fill(); g.stroke();
+      // はねの すじ 2本
+      g.globalAlpha = .5; g.lineWidth = Math.max(1, r*.026);
+      g.beginPath();
+      g.moveTo(r*.01, -r*.07); g.quadraticCurveTo(r*.14, -r*.01, r*.14, r*.09);
+      g.moveTo(-r*.01, r*.01); g.quadraticCurveTo(r*.09, r*.05, r*.09, r*.13);
+      g.stroke(); g.globalAlpha = 1;
+      g.restore();
+    }
+    // おなかの うすい ところ
+    g.fillStyle = T.hi || T.shade;
+    g.beginPath(); g.ellipse(0, r*.46, r*.40, r*.24, 0, 0, 7); g.fill();
+    g.restore();
+    // 目のまわりの 白わっか（ほそく／目に ぴったり）
+    g.strokeStyle = "#FFFFFF"; g.lineWidth = Math.max(1, r*.05);
+    for (const s2 of [-1,1]){
+      g.beginPath(); g.arc(s2*r*.33, -r*.02, r*.185, 0, 7); g.stroke();
+    }
+  }
+
+  // ぞう：はなは 顔の 内がわで 完結させる。
+  // 外に のばすと ぎゅうぎゅうの ばんめんで となりと ぶつかって 読めなくなる
+  // （CLAUDE.md に ある とおり、こあらの はなと 同じ かんがえ方）。
+  if (T.face === "elephant"){
+    // ぞうの はな。まえは ただの かたまりで ぞうに 見えなかった。
+    // ぞうらしさは「上が ふとく 下が ほそい」「しわの すじ」「さきが まく」の 3つ。
+    // 外に のばすと ぎゅうぎゅうの ばんめんで となりと ぶつかるので
+    //   たては r*.74 まで、よこは r*.30 まで に おさめて ある。
+    g.save();
+    g.lineCap = "round"; g.lineJoin = "round";
+
+    // はなの すじ道（上から さきへ）。さきは みぎに まく。
+    const P = [
+      [ 0.00, 0.02], [-0.05, 0.26], [ 0.00, 0.48],
+      [ 0.10, 0.63], [ 0.21, 0.57]
+    ].map(([x,y]) => [x*r, y*r]);
+
+    const seg = (i, w, col) => {
+      g.strokeStyle = col; g.lineWidth = Math.max(1, w);
+      g.beginPath();
+      g.moveTo(P[i][0], P[i][1]);
+      g.quadraticCurveTo(P[i+1][0], P[i+1][1], P[i+2][0], P[i+2][1]);
+      g.stroke();
+    };
+
+    // ふち → 本体 の 順で かさねて、ふとさを だんだん ほそく する
+    for (const [ci, cw] of [[0, .34], [2, .25]]){
+      seg(ci, r*cw, T.line);
+    }
+    for (const [ci, cw] of [[0, .27], [2, .18]]){
+      seg(ci, r*cw, T.shade);
+    }
+    // さきの まき
+    g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.17);
+    g.beginPath(); g.moveTo(P[3][0], P[3][1]); g.lineTo(P[4][0], P[4][1]); g.stroke();
+    g.strokeStyle = T.shade; g.lineWidth = Math.max(1, r*.11);
+    g.beginPath(); g.moveTo(P[3][0], P[3][1]); g.lineTo(P[4][0], P[4][1]); g.stroke();
+
+    // しわの すじ（ぞうの はなだと わかる いちばんの 手がかり）
+    g.strokeStyle = T.line; g.globalAlpha = .55;
+    const wr = [[0.13, .125], [0.28, .115], [0.43, .10], [0.56, .085]];
+    for (const [ty, hw] of wr){
+      const y = ty*r;
+      const x = (ty < .3 ? -0.035 : (ty - .30) * 0.30) * r;
+      g.lineWidth = Math.max(1, r*.026);
+      g.beginPath();
+      g.moveTo(x - hw*r, y - r*.02);
+      g.quadraticCurveTo(x, y + r*.03, x + hw*r, y - r*.02);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    g.restore();
+  }
+
+  if (T.face === "panda"){
+    // マズル（muzzle:"..." を 持つ子だけ）。たぬき用。
+    // こい ぶち＋こい 体 だけだと 顔ぜんたいが 茶の かたまりに 見えるので、
+    // くちの まわりだけ 明るく して 面を 割る。ぶちより 先に 描く（ぶちが 上）。
+    if (T.muzzle){
+      g.fillStyle = T.muzzle;
+      g.beginPath(); g.ellipse(0, r*.29, r*.34, r*.22, 0, 0, 7); g.fill();
+    }
+    // patchC で 目のまわりの 色を 変えられる（たぬきは こげ茶）
+    g.fillStyle = T.patchC || "#3B3330";
+    for (const s of [-1,1]){
+      g.save(); g.translate(s*r*.355, r*.012); g.rotate(s*0.2);
+      g.beginPath(); g.ellipse(0,0, r*.325, r*.36, 0, 0, 7); g.fill();
+      g.restore();
+    }
+    // みみの リボン（ribbon:true の子だけ）
+    if (T.ribbon){
+    g.save();
+    g.translate(r*.78, -r*.92); g.rotate(-.35);
+    g.fillStyle = "#FF9EC0";
+    g.beginPath(); g.ellipse(-r*.115, 0, r*.105, r*.078, -.45, 0, 7); g.fill();
+    g.beginPath(); g.ellipse( r*.115, 0, r*.105, r*.078,  .45, 0, 7); g.fill();
+    g.fillStyle = "#FFC2D8";
+    g.beginPath(); g.arc(0, 0, r*.055, 0, 7); g.fill();
+    g.restore();
+    }
+  }
+  // みけの ぶち。
+  // 目（eyeX=r*.33, eyeY=-r*.02）に かからない ところにだけ 置く。
+  // 目の上に もようを のせると 表情が 消える（ぱんだ・くろしばで 学んだ）。
+  if (T.mike){
+    g.save();
+    g.fillStyle = T.mikeA;                                   // オレンジ：右うえ（みみと つながる）
+    g.beginPath(); g.ellipse(r*.44, -r*.58, r*.36, r*.30, .22, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(-r*.56, r*.56, r*.22, r*.17, -.3, 0, 7); g.fill();   // 左した に ちいさく
+    g.fillStyle = T.mikeB;                                   // くろ：左うえ（すこし ちいさめ）
+    g.beginPath(); g.ellipse(-r*.40, -r*.60, r*.28, r*.23, -.26, 0, 7); g.fill();
+    g.restore();
+  }
+  // らいおん：たてがみ（＝体の輪郭）の 内がわに、なめらかな かおの 円を のせる。
+  // 円の 大きさは r*(1-2*amp) ＝ たてがみの「谷」と ちょうど 接する 大きさ。
+  // ここを 大きく すると 谷から かおが はみ出し、小さく すると ほっぺが たてがみに 乗る。
+  if (T.face === "lion"){
+    const R = r * (1 - 2*T.amp);
+    // みみ（かおの 円より 先に えがいて、下半分を 隠す）
+    for (const s of [-1, 1]){
+      g.save(); g.translate(s*r*.44, -r*.66);
+      g.fillStyle = T.faceB; g.strokeStyle = T.faceL; g.lineWidth = Math.max(1, r*.035);
+      g.beginPath(); g.arc(0, 0, r*.155, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = T.earIn;
+      g.beginPath(); g.arc(0, r*.02, r*.08, 0, 7); g.fill();
+      g.restore();
+    }
+    // かおの 円
+    const gf = g.createRadialGradient(-R*.3, -R*.35, R*.1, 0, 0, R*1.05);
+    gf.addColorStop(0, "#ffffff");
+    gf.addColorStop(.35, T.faceB);
+    gf.addColorStop(1, T.faceS);
+    g.fillStyle = gf; g.strokeStyle = T.faceL; g.lineWidth = Math.max(1, r*.038);
+    g.beginPath(); g.arc(0, 0, R, 0, 7); g.fill(); g.stroke();
+    // マズル（ふたこぶ）
+    g.fillStyle = "#FFF3DC";
+    for (const s of [-1, 1]){
+      g.beginPath(); g.ellipse(s*r*.135, r*.275, r*.175, r*.145, 0, 0, 7); g.fill();
+    }
+  }
+  // うしの ぶち：顔の みぎ 4わりほどを まとめて 黒く する。
+  // そとがわの ふちは もこもこの 輪郭を そのまま なぞる。丸で 近似すると
+  // ふちに 白い すきまが 出たり 黒が はみ出したり するので、この計算を 外さないこと。
+  if (T.face === "cow"){
+    g.save();
+    g.fillStyle = T.cowA || "#3B3330";
+    const a0 = -Math.PI*0.60, a1 = Math.PI*0.34, N = 44;
+    g.beginPath();
+    for (let i = 0; i <= N; i++){
+      const a = a0 + (a1 - a0) * i / N;
+      const rr = r * (1 - T.amp + T.amp*Math.sin(a*T.fluff + cp));
+      const x = Math.cos(a)*rr, y = Math.sin(a)*rr;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    // 内がわは やわらかい なみ線で とじる（まっすぐには 切らない）
+    g.bezierCurveTo(r*.16, r*.60, r*.22, r*.18, r*.06, -r*.16);
+    g.bezierCurveTo(-r*.06, -r*.44, r*.04, -r*.72, -r*.31, -r*.95);
+    g.closePath(); g.fill();
+    // ひだり下に ちいさい ぶちを ひとつ（左右で つりあいを とる）
+    g.beginPath(); g.ellipse(-r*.62, r*.52, r*.21, r*.15, -.38, 0, 7); g.fill();
+    g.restore();
+    // はなづら（うしの いちばんの とくちょう。よこ長で 大きい）
+    g.fillStyle = "#FFC2D2";
+    g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.04);
+    g.beginPath(); g.ellipse(0, r*.33, r*.30, r*.215, 0, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = "#E39BAF";
+    for (const s2 of [-1,1]){
+      g.beginPath(); g.ellipse(s2*r*.115, r*.29, r*.042, r*.055, s2*.2, 0, 7); g.fill();
+    }
+    g.fillStyle = "rgba(255,255,255,.5)";
+    g.beginPath(); g.ellipse(-r*.09, r*.24, r*.09, r*.045, -.28, 0, 7); g.fill();
+  }
+  // ひよこの ちいさな はね
+  if (T.face === "chick"){
+    g.save();
+    g.fillStyle = T.shade; g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.045);
+    for (const s2 of [-1,1]){
+      g.save(); g.translate(s2*r*.80, r*.26); g.scale(s2, 1); g.rotate(.28);
+      g.beginPath();
+      g.moveTo(-r*.02, -r*.20);
+      g.quadraticCurveTo(r*.30, -r*.14, r*.26, r*.16);
+      g.quadraticCurveTo(r*.14, r*.30, -r*.04, r*.16);
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    g.restore();
+  }
+  // こあらの はな。顔の 内がわで 完結する とくちょう なので、
+  // ぎゅうぎゅうに つまっても 読める。
+  if (T.face === "koala"){
+    g.fillStyle = "#4A4340";
+    g.beginPath();
+    g.moveTo(0, r*.05);
+    g.bezierCurveTo(-r*.235, r*.09, -r*.215, r*.45, 0, r*.47);
+    g.bezierCurveTo(r*.215, r*.45, r*.235, r*.09, 0, r*.05);
+    g.closePath(); g.fill();
+    g.fillStyle = "rgba(255,255,255,.30)";
+    g.beginPath(); g.ellipse(-r*.075, r*.17, r*.065, r*.05, -.4, 0, 7); g.fill();
+  }
+  /* ============================================================
+     シークレットの 3体（あいことばで 解放。定義は 上の SECRET_CHARACTERS）。
+     ============================================================ */
+
+  // うり坊（いのししの こども）。**しま模様が いのち。**
+  // こげ茶 だけだと くま・たぬきと 見分けが つかない ので、
+  // クリームの よこじまで 模様として 分ける（うし・パンダ・ねこと 同じ 考え方）。
+  if (T.face === "boar"){
+    g.save();
+    // うり坊の しま。**顔の はしに みじかい 線で 置く。**
+    // よこ幅いっぱいの おびに したら、しま では なく
+    // 「あごひげ」に 見えた（これは かお であって 体では ない）。
+    g.fillStyle = T.tan || "#F2DFC2";
+    g.globalAlpha = .92;
+    for (const s2 of [-1, 1]) for (const [yy, ln] of [[-.46, .26], [-.22, .30], [.04, .26]]){
+      g.save(); g.translate(s2*r*.66, r*yy); g.rotate(s2*0.42);
+      g.beginPath(); g.ellipse(0, 0, r*ln*.5, r*.052, 0, 0, 7); g.fill();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+    g.restore();
+    // はな（ぶたより ちいさく・こい色。まるく しすぎると ぶたに なる）
+    g.fillStyle = T.snout || "#8E6B53";
+    g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.04);
+    g.beginPath(); g.ellipse(0, r*.30, r*.215, r*.165, 0, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = "#5C463C";
+    for (const s2 of [-1,1]){
+      g.beginPath(); g.ellipse(s2*r*.085, r*.31, r*.035, r*.05, 0, 0, 7); g.fill();
+    }
+    // きば 2本。**上むきに ちいさく。** 大きくすると こわい顔に なる
+    // きば：はなの 両わきから 上むきに。ちいさすぎると なにか わからない
+    g.fillStyle = "#FFFBF2"; g.strokeStyle = "#CFBBA0"; g.lineWidth = Math.max(.9, r*.026);
+    for (const s2 of [-1,1]){
+      g.save(); g.translate(s2*r*.235, r*.40); g.scale(s2, 1); g.rotate(-.22);
+      g.beginPath();
+      g.moveTo(-r*.055, r*.10);
+      g.quadraticCurveTo(-r*.02, -r*.14, r*.045, -r*.19);
+      g.quadraticCurveTo(r*.075, -r*.02, r*.055, r*.10);
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+  }
+
+  // ユニコーン。**むらさきは 15体で 空いて いた ゆいいつの 色。**
+  // 角は 金。たてがみは にじいろ。どちらも 1.22r を こえない こと。
+  if (T.face === "unicorn"){
+    // **ながい はなづら。** これが ないと ただの まるい たまで、
+    // 馬らしさが どこにも なかった（「なんだか わからない」と 言われた）。
+    // **よこより たてを ながく する** のが きも。まるい マズルだと ねこに なる。
+    g.fillStyle = T.muzzle || "#FFF4E4";
+    g.beginPath(); g.ellipse(0, r*.30, r*.235, r*.315, 0, 0, 7); g.fill();
+    // はなづらの ふち（うっすら）。面が 浮いて 見えないように
+    g.save(); g.globalAlpha = .35; g.strokeStyle = T.line;
+    g.lineWidth = Math.max(.8, r*.022);
+    g.beginPath(); g.ellipse(0, r*.30, r*.235, r*.315, 0, 0, 7); g.stroke();
+    g.restore();
+
+    // **前がみ（まえに たらした たてがみ）。**
+    // うしろの たてがみだけだと あたまの うしろで 完結して しまう。
+    // ひたいに かかる 房を 3つ 足すと ぐっと 生きものに なる。
+    {
+      // ひたいに **はっきり かかる** ながさに する。
+      // さきが -.58r あたりで 終わって いた ときは、うしろの たてがみに
+      // まぎれて **前がみが あるのか わからなかった**。
+      // 6ふさ・はば .12r で ふっさり させ、ひだりへ ながす
+      // （うしろの たてがみと 向きを そろえる）。
+      const FORE = [["#FF9EC0", -.50, -.74, .46, -.52], ["#FFB6A8", -.30, -.88, .62, -.36],
+                    ["#FFD79A", -.09, -.95, .68, -.20], ["#FFF2A6",  .12, -.94, .64, -.04],
+                    ["#B8EBBE",  .32, -.86, .54,  .12], ["#A8D9F2",  .48, -.72, .42,  .28]];
+      for (const [col, x0, y0, len, tilt] of FORE){
+        g.save(); g.translate(r*x0, r*y0); g.rotate(tilt);
+        g.fillStyle = col;
+        g.beginPath();
+        g.moveTo(-r*.125, 0);
+        g.quadraticCurveTo(-r*.105, r*len*.55, -r*.03, r*len);   // さきを ひだりへ
+        g.quadraticCurveTo(r*.085, r*len*.55, r*.125, 0);
+        g.closePath(); g.fill();
+        g.restore();
+      }
+    }
+    // たてがみ：あたまの ふちに そって にじの ふさを 5つ
+    // つの：まんなか 上。さきは 1.20r（**1.22r を こえない**）
+    g.save();
+    const hg = g.createLinearGradient(0, -r*1.21, 0, -r*.76);
+    hg.addColorStop(0, "#FFF0B8"); hg.addColorStop(1, T.hornC || "#F2C64E");
+    g.fillStyle = hg; g.strokeStyle = T.hornL || "#C99A2B";
+    g.lineWidth = Math.max(.9, r*.028); g.lineJoin = "round";
+    // **ほそく ながく。** ふとくて みじかいと つのでは なく
+    // 「おうかんの かざり」に 見える。さきは 1.21r（1.22r を こえない）。
+    g.beginPath();
+    g.moveTo(-r*.055, -r*.76); g.lineTo(0, -r*1.21); g.lineTo(r*.055, -r*.76);
+    g.closePath(); g.fill(); g.stroke();
+    // つのの うずまき 2本
+    g.strokeStyle = "rgba(201,154,43,.75)"; g.lineWidth = Math.max(.8, r*.026);
+    g.lineCap = "round";
+    for (const yy of [-.90, -1.04]){
+      const w = .048 * (yy < -1 ? .45 : .85);
+      g.beginPath();
+      g.moveTo(-r*w, r*yy);
+      g.lineTo( r*w, r*(yy + .04));
+      g.stroke();
+    }
+    g.restore();
+    // ほおの ちいさな 星（まほうっぽさ）
+    g.fillStyle = "rgba(255,255,255,.85)";
+    sparkle4(g, r*.66, -r*.30, r*.10, "rgba(255,255,255,.9)");
+  }
+
+  // ドラゴン。**はねは つけない。** よこに 張り出すと ぎゅうぎゅうの ばんめんで
+  // となりに かぶる（ぞうの はなと 同じ 理由）。つのと きばだけで 十分 読める。
+  if (T.face === "dragon"){
+    // せなかの とげ 3つ（あたまの 上。1.15r いない）
+    g.fillStyle = T.spike || "#E9C46A"; g.strokeStyle = T.line;
+    g.lineWidth = Math.max(.9, r*.032); g.lineJoin = "round";
+    for (const [ox, sc] of [[-.30, .72], [0, 1], [.30, .72]]){
+      g.beginPath();
+      g.moveTo(r*(ox - .075*sc), -r*.90);
+      g.lineTo(r*ox,             -r*(.90 + .22*sc));
+      g.lineTo(r*(ox + .075*sc), -r*.90);
+      g.closePath(); g.fill(); g.stroke();
+    }
+    // つの 2本。**ながい 2本ストロークに しない こと。**
+    // ふとさの 変わらない ながい 線に して いた ときは、
+    // つのでは なく **金色の バナナ／触角** に 見えた。
+    // ねもとを ふとく・さきを ほそくした 三日月に する。さきは 1.13r いない。
+    for (const s2 of [-1,1]){
+      g.save(); g.translate(s2*r*.44, -r*.66); g.scale(s2, 1);
+      g.fillStyle = T.hornC || "#F0D08A";
+      g.strokeStyle = T.hornL || "#B8873A"; g.lineWidth = Math.max(.9, r*.030);
+      g.lineJoin = "round";
+      g.beginPath();
+      // さきは 中心から 1.19r。**1.22r を こえない こと**（となりの子に かぶる）
+      g.moveTo(-r*.10, r*.11);                                  // ねもと そと
+      g.quadraticCurveTo(r*.09, -r*.09, r*.26, -r*.30);         // さきへ
+      g.quadraticCurveTo(r*.15, -r*.08, r*.09, r*.10);          // うちがわを もどる
+      g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    // マズル（はなづら）。**おなかの おびに しては いけない。**
+    // よこ .46r・たて .30r の 大きな おびに して いた ときは、
+    // かおの 下半分を おおって「あごひげ」に 見えた。これは かおで あって 体では ない。
+    g.save();
+    g.fillStyle = T.tan || "#FFF0CE";
+    g.beginPath(); g.ellipse(0, r*.30, r*.30, r*.205, 0, 0, 7); g.fill();
+    g.restore();
+    // きば：くちの 両はしから 下に ちょこん。
+    // はなと くちは ふつうの えがき方に まかせる（ここで 足すと ごちゃつく）。
+    g.fillStyle = "#FFFBF2"; g.strokeStyle = "#DCCBAF"; g.lineWidth = Math.max(.8, r*.02);
+    for (const s2 of [-1,1]){
+      g.beginPath();
+      g.moveTo(s2*r*.105, r*.28);
+      g.lineTo(s2*r*.185, r*.28);
+      g.lineTo(s2*r*.142, r*.45);
+      g.closePath(); g.fill(); g.stroke();
+    }
+  }
+
+  if (T.face === "pig"){
+    // はなは すこし ちいさく・上へ。前は 顔が よこに 広がって「まんじゅう」に 見えていた
+    g.fillStyle = "#FF9DB4";
+    g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*.04);
+    g.beginPath(); g.ellipse(0, r*.27, r*.255, r*.195, 0, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = "#D96B87";
+    for (const s2 of [-1,1]){
+      g.beginPath(); g.ellipse(s2*r*.10, r*.28, r*.04, r*.055, 0, 0, 7); g.fill();
+    }
+    g.fillStyle = "rgba(255,255,255,.55)";
+    g.beginPath(); g.ellipse(-r*.085, r*.19, r*.085, r*.042, -.28, 0, 7); g.fill();
+    // つむじ（あたまの ちょこんとした 毛）。シルエットに とくちょうが 出る
+    g.save();
+    g.strokeStyle = T.line; g.lineCap = "round"; g.lineWidth = Math.max(1.4, r*.062);
+    g.beginPath();
+    g.moveTo(-r*.05, -r*.92);
+    g.quadraticCurveTo(r*.14, -r*1.10, r*.16, -r*.96);
+    g.quadraticCurveTo(r*.17, -r*.87, r*.07, -r*.90);
+    g.stroke();
+    g.restore();
+    // くるんとした しっぽ（よこから ちょこっと のぞく）
+    g.save();
+    g.strokeStyle = T.line; g.lineCap = "round"; g.lineWidth = Math.max(1.3, r*.058);
+    g.beginPath();
+    g.moveTo(r*.92, r*.42);
+    g.quadraticCurveTo(r*1.14, r*.34, r*1.08, r*.20);
+    g.quadraticCurveTo(r*1.03, r*.10, r*.94, r*.17);
+    g.stroke();
+    g.restore();
+  }
+  // いぬのマズル
+  if (T.face === "dog"){
+    g.fillStyle = "#FFFBF2";
+    g.beginPath(); g.ellipse(0, r*.28, r*.34, r*.25, 0, 0, 7); g.fill();
+  }
+  // くろしばの もよう。
+  // くろい顔は そのままだと 表情が まったく 読めないので、
+  // 「まろまゆ」と クリームの マズル・ほお で 目と口の まわりを 明るくする。
+  // これは 見ばえの ためだけでなく、顔が 見えるように するための 必須の しかけ。
+  if (T.face === "shiba"){
+    const TAN = T.tan || "#F3E2C8";
+    // ほお（左右の うすい クリーム）
+    g.fillStyle = TAN;
+    for (const s of [-1,1]){
+      g.save(); g.globalAlpha = .55;
+      g.beginPath(); g.ellipse(s*r*.66, r*.24, r*.20, r*.24, s*.25, 0, 7); g.fill();
+      g.restore();
+    }
+    // マズル（口のまわり）
+    g.fillStyle = TAN;
+    g.beginPath(); g.ellipse(0, r*.34, r*.40, r*.28, 0, 0, 7); g.fill();
+    // あごの下まで つなげる
+    g.beginPath(); g.ellipse(0, r*.62, r*.26, r*.20, 0, 0, 7); g.fill();
+    // 目のまわりを ほんのり 明るく（しろめが うきやすくなる）
+    g.save(); g.globalAlpha = .30;
+    for (const s of [-1,1]){
+      g.beginPath(); g.ellipse(s*r*.355, r*.01, r*.26, r*.28, 0, 0, 7); g.fill();
+    }
+    g.restore();
+    // まろまゆ（しばの いちばんの とくちょう）
+    for (const s of [-1,1]){
+      g.save(); g.translate(s*r*.355, -r*.44); g.rotate(s*0.26);
+      g.beginPath(); g.ellipse(0, 0, r*.175, r*.125, 0, 0, 7); g.fill();
+      g.restore();
+    }
+  }
+
+  su = su || 0;
+  const shock = su > .25;
+  const happy = !shock && sm > .35;
+  const A = happy ? Math.min(1, (sm - .35)/.3) : 0;
+  const SA = shock ? Math.min(1, (su - .25)/.25) : 0;
+
+  // ほっぺ（わらうと ぽっと大きく、ツヤも出る）
+  g.fillStyle = happy ? "rgba(255,138,168,.62)"
+              : (shock ? "rgba(255,164,186,.44)" : "rgba(255,150,175,.5)");
+  const bw = r*(happy ? .19 : shock ? .135 : .15), bh = r*(happy ? .125 : shock ? .085 : .095);
+  for (const s2 of [-1,1]){
+    g.beginPath(); g.ellipse(s2*r*.58, r*.2, bw, bh, 0, 0, 7); g.fill();
+  }
+  if (happy){
+    g.fillStyle = `rgba(255,255,255,${.75*A})`;
+    for (const s2 of [-1,1]){
+      g.beginPath(); g.ellipse(s2*r*.62, r*.17, r*.045, r*.028, -.3, 0, 7); g.fill();
+    }
+  }
+
+  // め
+  const eyeX = r*.33, eyeY = -r*.02;
+  const eh = r*.135 * blinkAmt;
+  // とじた目（まばたき）と にっこり目（^^）は「線」なので、
+  // くらい ぶちの 上だと 消える。ぱんだ・たぬきは じっさい まばたきの あいだ
+  // 目が まるごと 消えて いた（ふだんの 目は 白目＋黒目 なので 気づかなかった）。
+  // ぶちの 上に 目が のる かおだけ 白い 線に する。
+  //   ぱんだ face … 両目とも くろい ぶちの 上（たぬきも これ）
+  //   うし   face … ぶちは 顔の みぎ 4わり なので みぎ目 だけ
+  //   しば   face … 目の まわりは まろまゆ（明るい）なので 濃い線の まま
+  const lidColor = (s2) =>
+    (T.face === "panda" || (T.face === "cow" && s2 > 0)) ? "#FFFFFF" : "#4A3A33";
+  for (const s2 of [-1,1]){
+    const ex = s2*eyeX;
+    const arc = happy && (T.eye === "arc" || (T.eye === "wink" && s2 < 0));
+    if (arc){
+      // にっこり ^ ^（ふとめ・やわらかいカーブ）
+      g.strokeStyle = lidColor(s2);
+      g.lineWidth = Math.max(1.3, r*.075);
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(ex - r*.14, eyeY + r*.075);
+      g.quadraticCurveTo(ex, eyeY - r*.105, ex + r*.14, eyeY + r*.075);
+      g.stroke();
+    } else if (!happy && blinkAmt < .18){
+      g.strokeStyle = lidColor(s2); g.lineWidth = Math.max(1, r*.055);
+      g.beginPath();
+      if (zz > .35){
+        // **ねむり目。** まばたきの `⌒`（上に ふくらむ 弧）は、この ゲームの
+        // **「わらい」の 形そのもの**で、眠って いるのに 笑って 固まって 見える
+        // （作者の 指摘。2026-09-18）。ねむり は **ゆるく たれた ⌣** に する。
+        g.moveTo(ex - r*.135, eyeY - r*.012);
+        g.quadraticCurveTo(ex, eyeY + r*.085, ex + r*.135, eyeY - r*.012);
+      } else {
+        g.arc(ex, eyeY + r*.02, r*.12, Math.PI*1.12, Math.PI*1.88);
+      }
+      g.stroke();
+    } else if (shock && kind === 2){
+      // せり上がり：まんまるの しろめ＋てんてん（上を見てる）
+      g.fillStyle = "#FFFFFF";
+      g.beginPath(); g.ellipse(ex, eyeY, r*.15, r*.17, 0, 0, 7); g.fill();
+      g.strokeStyle = "rgba(90,70,62,.5)"; g.lineWidth = Math.max(.8, r*.024);
+      g.stroke();
+      g.fillStyle = "#4A3A33";
+      g.beginPath(); g.ellipse(ex, eyeY - r*.035, r*.05, r*.058, 0, 0, 7); g.fill();
+    } else if (T.face === "panda" || T.face === "shiba" || T.face === "cow"){
+      // ぱんだ・くろしば：くらい顔なので しろめ＋くろめ（きらきら）で うかせる
+      const k = shock ? 1.34 : happy ? 1.18 : 1;
+      const ky = shock ? 1 : (happy ? 1 : blinkAmt);
+      g.fillStyle = "#FFFFFF";
+      g.beginPath(); g.ellipse(ex, eyeY, r*.118*k, r*.145*k*ky, 0, 0, 7); g.fill();
+      g.fillStyle = "#332C29";
+      g.beginPath(); g.ellipse(ex + s2*r*.012, eyeY + r*.008, r*.078*k, r*.098*k*ky, 0, 0, 7); g.fill();
+      g.fillStyle = "rgba(255,255,255,.98)";
+      g.beginPath(); g.ellipse(ex - r*.03*k, eyeY - r*.042*k, r*.034*k, r*.04*k*ky, 0, 0, 7); g.fill();
+      g.beginPath(); g.ellipse(ex + r*.034*k, eyeY + r*.05*k, r*.018*k, r*.021*k*ky, 0, 0, 7); g.fill();
+    } else {
+      // ぱっちり（わらう／おどろくと 大きく、ハイライトも増える）
+      const k = shock ? 1.36 : happy ? 1.18 : 1;
+      const ry = shock ? r*.175 : happy ? r*.145 : eh;
+      g.fillStyle = "#4A3A33";
+      g.beginPath();
+      g.ellipse(ex, eyeY - (happy ? r*.012 : 0), r*.105*k, ry*(shock?1:k), 0, 0, 7);
+      g.fill();
+      g.fillStyle = "rgba(255,255,255,.97)";
+      g.beginPath();
+      g.ellipse(ex - r*.04*k, eyeY - r*.058*k, r*.042*k, r*.05*k*((happy||shock)?1:blinkAmt), 0, 0, 7);
+      g.fill();
+      if (happy || shock){
+        g.beginPath();
+        g.ellipse(ex + r*.042*k, eyeY + r*.055*k, r*.026*k, r*.03*k, 0, 0, 7); g.fill();
+      }
+    }
+    // ねむそう：**上から まぶたが 下りてくる**。目の たかさは 呼ぶ側で 縮める
+    if (dw > .05 && !happy && !shock){
+      g.strokeStyle = lidColor(s2);
+      g.lineWidth = Math.max(1, r*.052);
+      g.lineCap = "round";
+      // **まぶたを 目の 上に うっすら 乗せない こと。** 大きな目の 上に 線が 乗ると
+      // 眠気では なく **不機嫌（ジト目）**に 読める（実測で ふんだ）。
+      // 呼ぶ側で 目の たかさを しっかり 縮めた うえで、まぶたは 目の 中ほどまで 下ろす。
+      const ly = eyeY - r*.075 + r*.115 * dw;
+      g.beginPath();
+      g.moveTo(ex - r*.15, ly - r*.025);
+      g.quadraticCurveTo(ex, ly + r*.06, ex + r*.15, ly - r*.025);
+      g.stroke();
+    }
+  }
+
+  if (shock && kind === 2){
+    // せり上がり：ぷるぷる した くち
+    const my = MR.lowMouth === "snout" ? r*.58 : (MR.lowMouth === "chin" ? r*.62 : r*.245);
+    if (T.face === "chick"){
+      g.save();
+      g.translate(0, my - r*.03); g.rotate(Math.sin(phase*19)*.28);
+      g.fillStyle = "#FF9E3D";
+      g.beginPath();
+      g.moveTo(-r*.13, -r*.03); g.lineTo(r*.13, -r*.03); g.lineTo(0, r*.15);
+      g.closePath(); g.fill();
+      g.restore();
+    } else if (MR.noMouth){
+      // 口の ない かお（ぞう）。mouthRule を 見ること
+    } else {
+      g.strokeStyle = MC; g.lineWidth = Math.max(1, r*.048);
+      g.lineCap = "round"; g.lineJoin = "round";
+      g.beginPath();
+      g.moveTo(-r*.115, my);
+      g.quadraticCurveTo(-r*.058, my - r*.062, 0, my);
+      g.quadraticCurveTo(r*.058, my + r*.062, r*.115, my);
+      g.stroke();
+      if (!MR.noNoseDot){
+        g.fillStyle = "#5C463C";
+        g.beginPath(); g.ellipse(0, my - r*.115, r*.06, r*.043, 0, 0, 7); g.fill();
+      }
+    }
+    if (T.face === "cat"){
+      drawWhiskers(g, r);
+    }
+    drawShock2(g, r, SA, phase);
+    g.restore();
+    return;
+  }
+
+  if (shock){
+    // ちいさく「わっ」と あいた口
+    if (T.face === "chick"){
+      g.fillStyle = "#FF9E3D";
+      g.beginPath(); g.ellipse(0, r*.23, r*.085, r*.105, 0, 0, 7); g.fill();
+      g.fillStyle = "#E07A20";
+      g.beginPath(); g.ellipse(0, r*.27, r*.055, r*.045, 0, 0, 7); g.fill();
+    } else if (MR.noMouth){
+      // 口の ない かお（ぞう）。あけた口も えがかない。mouthRule を 見ること
+    } else {
+      const oy = MR.lowMouth === "snout" ? r*.34 : (MR.lowMouth === "chin" ? r*.38 : 0);
+      g.fillStyle = MC;
+      g.beginPath(); g.ellipse(0, r*.245 + oy, r*.072, r*.092, 0, 0, 7); g.fill();
+      g.fillStyle = TG;
+      g.beginPath(); g.ellipse(0, r*.275 + oy, r*.04, r*.036, 0, 0, 7); g.fill();
+      if (!MR.noNoseDot){
+        g.fillStyle = "#5C463C";
+        g.beginPath(); g.ellipse(0, r*.13, r*.06, r*.043, 0, 0, 7); g.fill();
+      }
+    }
+    if (T.face === "cat"){
+      drawWhiskers(g, r);
+    }
+    drawShock(g, r, SA, phase);
+    g.restore();
+    return;
+  }
+
+  if (happy){
+    drawSmileMouth(g, T, r);
+    if (T.face === "cat"){        // ひげは わらっても そのまま
+      drawWhiskers(g, r);
+    }
+    drawAccent(g, T, r, A, phase);
+    g.restore();
+    return;
+  }
+
+  // くち／くちばし
+  if (yw > .02){
+    // **あくび。** ここだけ 口を あける。ぞうは 口を えがかない（mouthRule）
+    if (T.face === "chick" || T.beakLong){
+      // くちばしを 上下に ひらく（まるい 穴に すると くちばしに 見えない）
+      // **あくびの くちばしは よこにも ひろげる。** はば .15r の まま 上下に ひらくと
+      // ほそながい オレンジの かたまりに 見えて、ひらいて いる ことが 読めない
+      // **くちばしは 下あごが 下がる。上へは ひらかない。**
+      // 上に ひらくと ねもと(.20r)と 目(-.02r)の あいだ .22r を こえて、
+      // とがった さきが まゆの ところまで のびる（実際そう なった）
+      // めじろ（beakLong）は ほそい くちばし。ひよこの はばで あけると
+      // かおの はばの 半分に なって 別の とりに なる
+      const lg = !!T.beakLong;
+      const op = r*(lg ? .26 : .30)*yw;       // した あごが 下がる ぶん
+      const bw = r*(lg ? (.058 + .075*yw) : (.15 + .10*yw));   // ねもとの はば
+      const y0 = r*(lg ? .07 : .20);
+      g.fillStyle = lg ? MC : "#C2410C";      // 口の 中。よこの さきを ちょうつがいに そろえる
+      g.beginPath(); g.moveTo(-bw, y0 + op*.5); g.lineTo(0, y0);
+      g.lineTo(bw, y0 + op*.5); g.lineTo(0, y0 + op); g.closePath(); g.fill();
+      g.fillStyle = lg ? (T.beakB || "#4A423C") : "#FF9E3D";
+      g.beginPath(); g.moveTo(-bw, y0); g.lineTo(bw, y0);
+      g.lineTo(0, y0 - r*.06*yw); g.closePath(); g.fill();                 // うわ くちばし
+      g.beginPath(); g.moveTo(-bw, y0 + op); g.lineTo(bw, y0 + op);
+      g.lineTo(0, y0 + op + r*(lg ? .17 : .21)); g.closePath(); g.fill();  // した くちばし
+    } else if (!MR.noMouth){
+      const oy = MR.lowMouth === "snout" ? r*.34 : (MR.lowMouth === "chin" ? r*.38 : 0);
+      // はな（ω くちの ぶんは 出さない）
+      if (!MR.bigNose && T.face !== "cat"){
+        g.fillStyle = "#5C463C";
+        const my0 = (T.face === "dog") ? r*.24 : r*.2;
+        g.beginPath(); g.ellipse(0, my0 - r*.06, r*.07, r*.05, 0, 0, 7); g.fill();
+      } else if (T.face === "cat"){
+        g.fillStyle = "#E4728F";
+        g.beginPath();
+        g.moveTo(-r*.07, r*.1); g.lineTo(r*.07, r*.1); g.lineTo(0, r*.19);
+        g.closePath(); g.fill();
+      }
+      // **あくびの 口は 行き先を きめて そこへ 寄せる。**
+      // ふつうの ω の ばしょから すこし ふくらませる やり方だと、
+      // 大きな はなの 子（こあら・うし・ぶた）で かおの 下から はみ出す。
+      const bigN = (oy > 0);
+      const tCy = bigN ? r*.645 : r*.400;   // 目の 下 .11r 〜 かおの 下 .86r に おさめる
+      const tRx = bigN ? r*.240 : r*.290;
+      const tRy = bigN ? r*.215 : r*.290;
+      const cy0 = r*.30 + oy, mCy = cy0 + (tCy - cy0)*yw;
+      const mRx = r*.075 + (tRx - r*.075)*yw;
+      const mRy = r*.055 + (tRy - r*.055)*yw;
+      g.fillStyle = MC;
+      g.beginPath(); g.ellipse(0, mCy, mRx, mRy, 0, 0, 7); g.fill();
+      g.fillStyle = TG;                      // した は 口の 下がわに 収まる
+      g.beginPath(); g.ellipse(0, mCy + mRy*.46, mRx*.44, mRy*.32, 0, 0, 7); g.fill();
+    }
+  } else if (T.face === "chick"){
+    g.fillStyle = "#FF9E3D";
+    g.beginPath();
+    g.moveTo(-r*.15, r*.2); g.lineTo(r*.15, r*.2); g.lineTo(0, r*.4);
+    g.closePath(); g.fill();
+  } else {
+    // いのししだけ ぶたより すこし 上（.56）。はなが ぶたより ちいさい ため
+    const my = MR.lowMouth === "chin" ? r*.62
+             : MR.lowMouth === "snout" ? (T.face === "boar" ? r*.56 : r*.58)
+             : (T.face === "dog" ? r*.24 : r*.2);
+    // はな（ぶたは 大きな はなが すでに あるので えがかない）
+    if (MR.bigNose){
+      g.strokeStyle = "#5C463C"; g.lineWidth = Math.max(1, r*.045); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-r*.10, my - r*.02);
+      g.quadraticCurveTo(0, my + r*.06, r*.10, my - r*.02);
+      g.stroke();
+    } else if (MR.noMouth){
+      // 口の ない かお（ぞう）。はな そのものが 顔の 中を とおる ので、
+      // ここで 黒い はなを だすと 2つに なる。mouthRule を 見ること
+    } else if (T.face !== "cat"){
+      g.fillStyle = "#5C463C";
+      g.beginPath(); g.ellipse(0, my - r*.06, r*.07, r*.05, 0, 0, 7); g.fill();
+    } else {
+      g.fillStyle = "#E4728F";
+      g.beginPath();
+      g.moveTo(-r*.07, my-r*.1); g.lineTo(r*.07, my-r*.1); g.lineTo(0, my-r*.01);
+      g.closePath(); g.fill();
+    }
+    // ω くち（ぶたは 上で えがきおわっている／ぞうは はなが かさなる）
+    if (!MR.bigNose && !MR.noMouth){
+      g.strokeStyle = "#5C463C"; g.lineWidth = Math.max(1, r*.045);
+      g.lineCap = "round";
+      g.beginPath();
+      g.arc(-r*.075, my + r*.035, r*.078, 0, Math.PI);
+      g.moveTo(r*.153, my + r*.035);
+      g.arc(r*.075, my + r*.035, r*.078, 0, Math.PI);
+      g.stroke();
+    }
+  }
+
+  // ねこのひげ
+  if (T.face === "cat"){
+    drawWhiskers(g, r);
+  }
+
+  g.restore();
+}
+function drawHeart(g, x, y, s){
+  g.save(); g.translate(x, y); g.scale(s/10, s/10);
+  g.beginPath();
+  g.moveTo(0, 4);
+  g.bezierCurveTo(-9, -3, -5, -10, 0, -5);
+  g.bezierCurveTo(5, -10, 9, -3, 0, 4);
+  g.fill(); g.restore();
+}
+
+/* ============================================================
+   ながれ
+   ============================================================ */
+/* **けっか画面では、その回に 見送った子が よこに 走る（2026-09-17）。**
+   さいごに 目に 入るのが 「詰まった 盤面 ＋ もう いっぱい…」 だった。
+   ストアの スクショで「動物を 詰め込んで 気の どくに 見える」として 避けた
+   まさに その 構図が、**毎ゲームの 締めくくり**に なって いた。
+   見送りが 看板の ゲームなら、締めは その回に 送りだした子たち であるべき。
+
+   **1人も 見送れなかった 回は 何も 出さない。** 出す ものが ないのが
+   正しい（つぎは 見たい、に なる）。空の 行列を でっちあげない こと。
+   **音は 出さない。** 決着の 音と かさなる。
+   **走るのは よこ。** 上へ 浮かせない（設計判断3）。 */
+let paradeN = 0, paradeI = 0, paradeT = 0, paradeDir = 1;
+const PARADE_GAP = 88;               // ひと組 2ひきの あいだ。popFx と 同じ 値
+const THEMES = [
+  { nm:"はれのひ",
+    sky:["#cfe8ff","#e8e2ff","#ffe6f2","#fff5e8"], rainbow:true, orb:"sun", orbC:"#FFEE9C",
+    deco:["h","s"], decoC:["#ffc0d6","#fff0b0"], cloud:"rgba(255,255,255,.82)",
+    panel:"rgba(255,255,255,.58)", stripe:"rgba(255,209,229,.30)", dot:"rgba(255,255,255,.60)",
+    wall:"#f2b5cb", wallIn:"#ffeaf3", cush:"#f7c6d8", ribbon:["#ffd0e0","#ffb3cd"],
+    page:"linear-gradient(180deg,#ffeef5 0%,#eaf4ff 55%,#fff6e8 100%)" },
+  { nm:"ゆうやけ",
+    sky:["#ffd9a0","#ffb9a8","#ffadc4","#ffe0cd"], rainbow:false, orb:"sun", orbC:"#FFC46B",
+    deco:["h","s"], decoC:["#ffd0b8","#fff3c9"], cloud:"rgba(255,236,224,.85)",
+    panel:"rgba(255,250,245,.62)", stripe:"rgba(255,196,180,.30)", dot:"rgba(255,255,255,.62)",
+    wall:"#f0a894", wallIn:"#ffe6d9", cush:"#f7bda8", ribbon:["#ffd2bd","#ffb59a"],
+    page:"linear-gradient(180deg,#ffe6d0 0%,#ffd3d8 55%,#fff0e0 100%)" },
+  { nm:"よぞら",
+    sky:["#4b4785","#6a579b","#9c76ab","#e0b6c8"], rainbow:false, orb:"moon", orbC:"#FFF6C9",
+    deco:["s","s"], decoC:["#fff3a8","#ffffff"], cloud:"rgba(255,255,255,.45)",
+    panel:"rgba(255,250,255,.5)", stripe:"rgba(196,175,235,.32)", dot:"rgba(255,255,255,.55)",
+    wall:"#b79ada", wallIn:"#ede2ff", cush:"#c6acea", ribbon:["#e2d0ff","#c4a6f0"],
+    page:"linear-gradient(180deg,#4b4785 0%,#8e78b5 55%,#f0d6e2 100%)" },
+  { nm:"みずのなか",
+    sky:["#bff0ff","#d6f7f0","#e9fff5","#fff9e8"], rainbow:false, orb:"sun", orbC:"#DFF7B0",
+    deco:["b","b"], decoC:["#ffffff","#c9f2ff"], cloud:"rgba(255,255,255,.7)",
+    panel:"rgba(240,255,255,.58)", stripe:"rgba(178,232,235,.30)", dot:"rgba(255,255,255,.62)",
+    wall:"#8ed5dd", wallIn:"#dcfaff", cush:"#a8e3e8", ribbon:["#c9f2f7","#8ed5dd"],
+    page:"linear-gradient(180deg,#d6f6ff 0%,#e6fff4 55%,#fffbe8 100%)" },
+  { nm:"さくら",
+    sky:["#ffe0ee","#ffe9f3","#fff0f6","#fff8ec"], rainbow:true, orb:"sun", orbC:"#FFF0A8",
+    deco:["p","h"], decoC:["#ffb8d2","#fff0f6"], cloud:"rgba(255,255,255,.85)",
+    panel:"rgba(255,252,254,.6)", stripe:"rgba(255,199,222,.30)", dot:"rgba(255,255,255,.65)",
+    wall:"#f7a8c4", wallIn:"#ffe4ef", cush:"#fbbcd4", ribbon:["#ffd6e6","#ff9dc0"],
+    page:"linear-gradient(180deg,#ffe2f0 0%,#fff0f6 55%,#fff8ec 100%)" },
+  // ここから 3つは 2026-09-12 に 足した ぶん。
+  // **えらんだ すじ道は「まだ 空いて いる 色」。**
+  // 寒色の 白系・灰色系・金色系が 1つも なかった。
+  // どれも **カゴの 中（panel / stripe）は 明るいまま**に して ある。
+  // 暗く すると いぬ（ほぼ黒）と たぬき（こげ茶）が 沈んで 見えなく なる。
+  { nm:"ゆきのひ",
+    sky:["#c6dff3","#dceaf7","#eef5fb","#fffdf8"], rainbow:false, orb:"sun", orbC:"#FFF6D8",
+    // ゆきを 白に したら **空も 白いので 1つも 見えなかった**（めじろの おばねと 同じ 失敗）。
+    // 下じきより ひとだん こい 水色に する こと。
+    deco:["w","w"], decoC:["#8fb8d8","#b6d2e8"], cloud:"rgba(255,255,255,.9)",
+    panel:"rgba(255,255,255,.62)", stripe:"rgba(200,222,240,.28)", dot:"rgba(255,255,255,.66)",
+    wall:"#a9c4dd", wallIn:"#e8f2fb", cush:"#c2d8ea", ribbon:["#dceaf7","#a9c4dd"],
+    page:"linear-gradient(180deg,#dbeaf7 0%,#eef5fb 55%,#fffdf8 100%)" },
+  { nm:"あめあがり",
+    sky:["#8fa3b8","#b8c6d4","#dde6ee","#fff3e2"], rainbow:true, orb:"sun", orbC:"#FFEEB0",
+    deco:["r","b"], decoC:["#cfe4f2","#ffffff"], cloud:"rgba(255,255,255,.75)",
+    panel:"rgba(252,254,255,.60)", stripe:"rgba(178,198,216,.28)", dot:"rgba(255,255,255,.62)",
+    wall:"#93aec6", wallIn:"#e4eef6", cush:"#aec6da", ribbon:["#d6e7f2","#93aec6"],
+    page:"linear-gradient(180deg,#8fa3b8 0%,#c6d4e0 55%,#fff3e2 100%)" },
+  { nm:"くものうえ",
+    sky:["#bcd8f5","#ffffff","#fff6dd","#fffaf0"], rainbow:false, orb:"sun", orbC:"#FFE9A0",
+    deco:["b","s"], decoC:["#ffffff","#ffd075"], cloud:"rgba(255,255,255,.95)",
+    panel:"rgba(255,253,246,.62)", stripe:"rgba(255,226,170,.26)", dot:"rgba(255,255,255,.70)",
+    wall:"#f0d59a", wallIn:"#fff8e6", cush:"#f7e2b8", ribbon:["#fff0cc","#f0d59a"],
+    page:"linear-gradient(180deg,#bcd8f5 0%,#ffffff 50%,#fff6dd 100%)" },
+  { nm:"みどりのおか",
+    sky:["#c8ecff","#e2f6dd","#f2fbe4","#fffbe8"], rainbow:true, orb:"sun", orbC:"#FFEE9C",
+    deco:["s","h"], decoC:["#fff3a8","#ffd6e6"], cloud:"rgba(255,255,255,.85)",
+    panel:"rgba(252,255,248,.6)", stripe:"rgba(200,232,180,.32)", dot:"rgba(255,255,255,.62)",
+    wall:"#a9d68c", wallIn:"#eafadd", cush:"#bfe0a4", ribbon:["#e2f5cf","#a9d68c"],
+    page:"linear-gradient(180deg,#d8f0ff 0%,#eafadf 55%,#fffbe8 100%)" },
+];
+/* ============================================================
+   まめまる3D（おためし）── お盆を 傾けて 転がす
+   ------------------------------------------------------------
+   ・3Dの 道具（three.js）は つかって いない。お盆・影・ふちを
+     自前の かんたんな 遠近法で えがき、子は 本体の drawCreature を
+     そのまま 画面に えがく（顔は 2D の まま、いつも こちらを 向く）。
+   ・第2版（2026-09-27・作者の 6つの 注文）
+     1. 転がりを 速く          2. 「つぎ」を 見せる
+     3. けしきは 本体の 10種類  4. お盆の 形も 5種類
+     5. 上下の うごき（ぴょんと はねる）。お盆の 外へは 見えない壁で はね返す
+     6. 連鎖（生まれた 子が 近くの なかまに 引きよせられて 次々 くっつく）
+   ・第3版（2026-09-27・作者）
+     7. お盆を 画面の よこはば いっぱいに        8. お盆の 上に じゃまな 柱（つみき）を 3つ
+     9. つむじかぜ：ふれた 子は 合体まえの 2人に もどる
+    10. ふちの 切れ目：小さい子は そこから 出て いって もどらない（びっくり顔で）
+   ・スコア・お題・称号・キャラえらびは まだ 入れて いない。終わりなし。
+   ============================================================ */
+
+const DEFAULT_TIERS = ALL_CHARACTERS.slice(0, 6);
+const SIZE_LADDER = [64, 49, 36, 29, 26, 22];
+const TIERS = DEFAULT_TIERS.map((c, i) => Object.assign({}, c, { r: SIZE_LADDER[i] }));
+const LAST = TIERS.length - 1;
+// おちてくる 子。ひよこは 合体でしか 生まれない（本体の きも）。
+// お盆は せまいので らいおんを すこし へらして ある。
+const DROP_POOL = [0,0, 1,1,1, 2,2,2, 3,3,3, 4,4];
+
+function rnd(a, b){ return a + Math.random()*(b-a); }
+function pick(a){ return a[(Math.random()*a.length)|0]; }
+function clamp(x, a, b){ return x < a ? a : x > b ? b : x; }
+
+/* ---------------- 調整用の 定数 ---------------- */
+const R        = 205;    // お盆の 大きさ（まるの ときの 半径。ほかの 形も 面積を これに そろえる）
+const RIM_W    = 15;     // ふちの あつみ
+const RIM_H    = 15;     // ふちの 高さ（低め＝「こぼれそうで こぼれない」）
+const BASE_H   = 12;     // お盆の 底の あつみ
+const GROUND_Y = -64;    // しきもの（地面）の 高さ
+const RUG_R    = 760;    // しきものの 大きさ
+const GATE_HALF = 58;    // 門の はばの 半分
+const GATE_A   = 0.95;   // 門の 場所。真よこから てまえへ 約55度（真よこだと アーチが 横むきで 見えない）
+const GATE_H   = 104;    // 門の アーチの 高さ
+const MAX_TILT = 0.19;   // 傾きの 上限（約11度）。これ以上は 全員が ふちに 寄る
+const TILT_EASE = 0.085; // 傾きが 追いつく 速さ（秒）。第1版 0.13 → 軽く した
+const G_ROLL   = 1350;   // 坂を 転がる 強さ。第1版 800 → 速く した
+const ROLL_RES = 22;     // ころがり抵抗。小さな 傾きでは 止まって いられる
+const DRAG     = 0.26;   // 速さに 比例する ブレーキ
+const V_MAX    = 660;
+const GRAV     = 1500;   // 上下の 重力
+const CEIL     = 330;    // 見えない 天井（お盆の 上 この 高さで はね返す）
+const FLICK_K  = 0.70;   // お盆を ぐいっと 持ち上げたときに 子が はねる 強さ
+const HOP_HIT  = 0.34;   // 強く ぶつかったとき 小さい子が はねる 強さ
+const VH_MAX   = 560;
+const E_BALL   = 0.30;   // 子どうしの はねかえり
+const E_RIM    = 0.45;   // ふち（見えない壁）の はねかえり
+const E_FLOOR  = 0.38;   // ゆかの はねかえり
+const MERGE_PAD = 3.5;
+const CAP      = 10;     // お盆に いられる 子の 上限
+const SPAWN_EVERY = 2.6; // 何秒ごとに 1人 ふってくるか
+const CHAIN_WINDOW = 1.3;// 生まれて この 秒数の うちに また くっつくと 連鎖
+const MAGNET_R = 175;    // 生まれた 子が なかまを 引きよせる 範囲
+const MAGNET_A = 1250;   // その 強さ
+const RUN_SP   = 58;     // ならんで 走る 2匹の 間かく（見かけの 直径と おなじ くらい）
+const RUN_SCALE = 1.32;  // 見送りの ときの 大きさ
+const SCENE_EVERY = 4;   // 見送り 何回ごとに けしきと お盆が かわるか
+const OB_N     = 3;      // じゃまな 柱の 数
+const OB_R     = 21;     // 柱の 太さ（半径）
+const OB_H     = 40;     // 柱の 高さ
+const GAP_ON   = true;   // ふちの 切れ目を つかうか（false で 切れ目なし）
+const GAP_HALF = 33;     // ふちの 切れ目の はばの 半分。これより 小さい子（いぬ・ねこ・ひよこ）だけ 出られる
+const WW_EVERY = 13;     // つむじかぜが 来る 間かく（秒）
+const WW_LIFE  = 11;     // つむじかぜが いる 長さ（秒）
+const WW_R     = 24;     // つむじかぜの 太さ
+const WW_SPEED = 80;
+
+/* ---------------- 画面 ---------------- */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+const PHI = 55 * Math.PI/180;       // ななめ上から 見下ろす 角度
+const SINP = Math.sin(PHI), COSP = Math.cos(PHI);
+const CAM_D = 1150;
+let F = 800, CX = 0, CY = 0;
+let bg = null;                      // けしき（うごかない ので 焼いて おく）
+
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  fitView();
+}
+/* お盆を 画面の よこはば いっぱいに（形ごとに はかる） */
+function fitView(){
+  let ex = R + RIM_W, ev = R + RIM_W;
+  for (const o of OUT){ ex = Math.max(ex, Math.abs(o.u)); ev = Math.max(ev, Math.abs(o.v)); }
+  ex += 6;
+  const k = Math.min(0.985*W / (2*ex), 0.84*H / (2*ev*SINP + 150));
+  F = CAM_D * k;
+  CX = W/2; CY = H*0.51;
+  bakeBg();
+}
+
+/* 世界 → 画面。X みぎ／Y うえ／Z てまえ */
+function proj(X, Y, Z){
+  const d = CAM_D - (Y*SINP + Z*COSP);
+  const up = Y*COSP - Z*SINP;
+  const s = F / d;
+  return { x: CX + X*s, y: CY - up*s, s, d };
+}
+
+/* ---------------- 色の 道具 ---------------- */
+function hexRGB(h){ h = h.replace("#", ""); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); }
+function rgbHex(c){ return "#" + c.map(x => Math.round(clamp(x, 0, 255)).toString(16).padStart(2, "0")).join(""); }
+function mix(a, b, t){ const A = hexRGB(a), B = hexRGB(b); return rgbHex(A.map((x, i) => x + (B[i] - x)*t)); }
+function darken(a, t){ return mix(a, "#3a2a20", t); }
+function alpha(a, t){ const c = hexRGB(a); return `rgba(${c[0]},${c[1]},${c[2]},${t})`; }
+
+/* ---------------- お盆の 傾き ---------------- */
+const tilt = { u:0, v:0 };          // いまの 傾き（下り坂の 向き × 大きさ）
+const tiltT = { u:0, v:0 };         // 目標
+const tiltPrev = { u:0, v:0 };
+function floorY(u, v){ return -(u*tilt.u + v*tilt.v); }
+/* お盆の 上の 点 (u, 高さh, v) を 画面へ */
+function trayP(u, h, v){ return proj(u, h + floorY(u, v), v); }
+
+/* ============================================================
+   お盆の 形（5種類）
+   ------------------------------------------------------------
+   中心から 見た 方向ごとの 半径 ρ(θ) で あらわす（どの 方向にも 1回だけ ふちが ある形）。
+   面積は まるの お盆（半径 R）に そろえる ので、どの 形でも 入る 子の 数は おなじ。
+   θ は (u, v) の 角度。v が プラス ＝ てまえ（画面の 下）。
+   ============================================================ */
+const HEART_TAB = (() => {
+  // ハートの 線を 細かく なぞって、方向ごとの 半径の 表を 作る
+  const N = 720, tab = new Array(N).fill(0);
+  const cy = -2.5;                       // 中心を すこし 下に（くぼみが 中心に とどかない ように）
+  for (let i = 0; i < 6000; i++){
+    const t = i/6000*6.2832;
+    const x = 16*Math.pow(Math.sin(t), 3);
+    const y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t) - cy;   // 上が プラス
+    const u = x, v = -y;                  // 画面の 下が てまえ → とがった ほうが てまえ
+    const a = (Math.atan2(v, u) + 6.2832) % 6.2832;
+    const k = Math.floor(a/6.2832*N) % N;
+    tab[k] = Math.max(tab[k], Math.hypot(u, v));
+  }
+  for (let k = 0; k < N; k++) if (!tab[k]) tab[k] = tab[(k + N - 1) % N];
+  return tab;
+})();
+const SHAPES = [
+  { nm:"まる",   rho: a => 1 },
+  { nm:"しかく", rho: a => Math.pow(Math.pow(Math.abs(Math.cos(a)), 4) + Math.pow(Math.abs(Math.sin(a)), 4), -1/4) },
+  { nm:"おはな", rho: a => 1 + .065*Math.cos(6*a + Math.PI/2) },
+  { nm:"ハート", rho: a => { const N = HEART_TAB.length; const x = ((a % 6.2832) + 6.2832) % 6.2832 / 6.2832 * N;
+                             const i = Math.floor(x) % N, f = x - Math.floor(x);
+                             return HEART_TAB[i]*(1 - f) + HEART_TAB[(i + 1) % N]*f; } },
+  { nm:"だえん", rho: a => 1 / Math.sqrt(Math.pow(Math.cos(a)/1.16, 2) + Math.pow(Math.sin(a)/.86, 2)) },
+];
+const N_SEG = 144;
+let SH = SHAPES[0], SHK = R;         // いまの 形と、面積を そろえる 倍率
+let IN = [], OUT = [], NRM = [], SEG_GATE = [], SEG_GAP = [], SEG_OPEN = [], DOTS = [], OBS = [];
+const gap = { ang: -Math.PI/2 };   // ふちの 切れ目
+function rhoAt(a){ return SH.rho(a) * SHK; }
+function buildShape(sh, gapAng){
+  SH = sh;
+  // 面積を はかって 倍率を きめる
+  let A = 0;
+  const M = 720;
+  for (let i = 0; i < M; i++){ const r = sh.rho(i/M*6.2832); A += .5*r*r*(6.2832/M); }
+  SHK = Math.sqrt(Math.PI*R*R / A);
+  IN = []; OUT = []; NRM = [];
+  for (let i = 0; i < N_SEG; i++){
+    const a = i/N_SEG*6.2832, r = rhoAt(a);
+    IN.push({ u:Math.cos(a)*r, v:Math.sin(a)*r });
+  }
+  for (let i = 0; i < N_SEG; i++){
+    const p0 = IN[(i + N_SEG - 1) % N_SEG], p1 = IN[i], p2 = IN[(i + 1) % N_SEG];
+    // 左右の 辺の 外むきの 向きを 足す
+    const e1u = p1.u - p0.u, e1v = p1.v - p0.v, e2u = p2.u - p1.u, e2v = p2.v - p1.v;
+    const l1 = Math.hypot(e1u, e1v) || 1, l2 = Math.hypot(e2u, e2v) || 1;
+    let nu = e1v/l1 + e2v/l2, nv = -e1u/l1 - e2u/l2;
+    const l = Math.hypot(nu, nv) || 1; nu /= l; nv /= l;
+    NRM.push({ u:nu, v:nv });
+    OUT.push({ u:p1.u + nu*RIM_W, v:p1.v + nv*RIM_W });
+  }
+  // 切れ目の 場所（おくがわの どこか。ハートは まんなかが くぼみ なので よける）
+  gap.ang = (gapAng !== undefined) ? gapAng : pick(sh.nm === "ハート" ? [-.75, -2.39] : [-1.5708, -.75, -2.39]);
+  // 門と 切れ目
+  for (const gt of gates.concat([gap])){
+    const a = gt.ang, r = rhoAt(a);
+    const P = { u:Math.cos(a)*r, v:Math.sin(a)*r };
+    const e = .004, ra = rhoAt(a - e), rb = rhoAt(a + e);
+    const tu = Math.cos(a + e)*rb - Math.cos(a - e)*ra, tv = Math.sin(a + e)*rb - Math.sin(a - e)*ra;
+    const tl = Math.hypot(tu, tv);
+    gt.P = P; gt.t = { u:tu/tl, v:tv/tl }; gt.n = { u:tv/tl, v:-tu/tl };
+  }
+  SEG_GATE = []; SEG_GAP = [];
+  for (let i = 0; i < N_SEG; i++){
+    const p = IN[i], q = IN[(i + 1) % N_SEG];
+    const mu = (p.u + q.u)/2, mv = (p.v + q.v)/2;
+    let g = false;
+    for (const gt of gates){
+      const du = mu - gt.P.u, dv = mv - gt.P.v;
+      if (Math.abs(du*gt.t.u + dv*gt.t.v) < GATE_HALF && Math.abs(du*gt.n.u + dv*gt.n.v) < 30) g = true;
+    }
+    SEG_GATE.push(g);
+    const du = mu - gap.P.u, dv = mv - gap.P.v;
+    SEG_GAP.push(GAP_ON && Math.abs(du*gap.t.u + dv*gap.t.v) < GAP_HALF && Math.abs(du*gap.n.u + dv*gap.n.v) < 30);
+  }
+  SEG_OPEN = SEG_GATE.map((g, i) => g || SEG_GAP[i]);
+  // みずたま（形の 中だけ）
+  DOTS = [];
+  let row = 0;
+  for (let v = -R*1.3; v <= R*1.3; v += 38, row++)
+    for (let u = -R*1.4 + (row % 2 ? 19 : 0); u <= R*1.4; u += 38)
+      if (wallInfo(u, v).dist > 12) DOTS.push({ u, v, s:5.5 });
+  placeObstacles();
+  if (W) fitView();
+}
+/* じゃまな 柱：ふちから はなし、たがいに はなし、門と 切れ目の 口を ふさがない */
+function placeObstacles(){
+  OBS = [];
+  for (let k = 0; k < 400 && OBS.length < OB_N; k++){
+    const u = rnd(-R*1.1, R*1.1), v = rnd(-R*1.1, R*1.1);
+    if (wallInfo(u, v).dist < 62) continue;
+    if (Math.hypot(u, v) < 40) continue;                         // まんなかは あけて おく
+    let ok = true;
+    for (const o of OBS) if (Math.hypot(o.u - u, o.v - v) < 130) ok = false;
+    for (const gt of gates.concat([gap])) if (Math.hypot(gt.P.u - u, gt.P.v - v) < 110) ok = false;
+    if (ok) OBS.push({ u, v, r:OB_R, ph: rnd(0, 6) });
+  }
+  for (const b of balls) for (const o of OBS){      // かさなった 子は よける
+    const d = Math.hypot(b.u - o.u, b.v - o.v);
+    if (d < b.r + o.r){ const k2 = (b.r + o.r + 1)/(d || 1); b.u = o.u + (b.u - o.u)*k2; b.v = o.v + (b.v - o.v)*k2; }
+  }
+}
+/* ふちまでの きょり（中が プラス）と、中むきの 向き */
+function wallInfo(u, v, skipGap){
+  // 電池のため：ふちから 十分 はなれて いれば こまかく はからない。
+  // 近い ときも、その 子の 方向の まわり（±20こま）だけ しらべる。
+  const ang = Math.atan2(v, u), L = Math.hypot(u, v), rr = rhoAt(ang);
+  if (rr - L > 130) return { dist: rr - L, nu: -u/(L || 1), nv: -v/(L || 1) };
+  const i0 = Math.round(((ang + 6.2832) % 6.2832) / 6.2832 * N_SEG);
+  let best = 1e9, bu = 0, bv = 0;
+  for (let k = -20; k <= 20; k++){
+    const i = (i0 + k + N_SEG) % N_SEG;
+    if (skipGap && SEG_GAP[i]) continue;
+    const p = IN[i], q = IN[(i + 1) % N_SEG];
+    const eu = q.u - p.u, ev = q.v - p.v;
+    const t = clamp(((u - p.u)*eu + (v - p.v)*ev) / (eu*eu + ev*ev), 0, 1);
+    const cu = p.u + eu*t, cv2 = p.v + ev*t;
+    const d = (u - cu)*(u - cu) + (v - cv2)*(v - cv2);
+    if (d < best){ best = d; bu = cu; bv = cv2; }
+  }
+  const d = Math.sqrt(best);
+  const inside = L < rr;
+  let nu, nv;
+  if (d < 1e-6){ const l = Math.hypot(u, v) || 1; nu = -u/l; nv = -v/l; }
+  else if (inside){ nu = (u - bu)/d; nv = (v - bv)/d; }
+  else { nu = (bu - u)/d; nv = (bv - v)/d; }
+  return { dist: inside ? d : -d, nu, nv };
+}
+
+/* ---------------- 門 ---------------- */
+const gates = [{ side:-1, ang: Math.PI - GATE_A, open:0 }, { side:1, ang: GATE_A, open:0 }];
+function gateOf(side){ return side > 0 ? gates[1] : gates[0]; }
+/* 門の 近くの 点：off＝ふちから 外への きょり（中は マイナス）、t＝ふちに そって よこへ */
+function gpt(gt, off, t){
+  return { u: gt.P.u + gt.n.u*off + gt.t.u*t, v: gt.P.v + gt.n.v*off + gt.t.v*t };
+}
+
+/* ============================================================
+   けしき（本体の THEMES 10種類を そのまま つかう）
+   ============================================================ */
+let TH = THEMES[0];
+let C = {};
+let DECO = [];
+function applyTheme(th){
+  TH = th;
+  C = {
+    floor: mix(th.wallIn, "#ffffff", .45), floorEdge: th.wallIn, dot: alpha(th.wall, .30),
+    rimTop: mix(th.cush, "#ffffff", .25), rimIn: th.wall, rimOut: darken(th.wall, .10), line: darken(th.wall, .30),
+    arch: th.ribbon[1], archL: darken(th.ribbon[1], .22), door: "#ffffff", doorL: darken(th.ribbon[1], .22),
+    heart: th.wall,
+    rug: mix(th.cush, "#ffffff", .62), rugEdge: mix(th.cush, "#ffffff", .25), rugDot: "rgba(255,255,255,.55)",
+    shadow: alpha(darken(th.wall, .55), .20),
+  };
+  DECO = [];
+  for (let i = 0; i < 16; i++)
+    DECO.push({ x: Math.random(), y: Math.random(), s: rnd(5, 11), t: pick(th.deco), c: pick(th.decoC),
+                sp: rnd(6, 16), ph: rnd(0, 6.3), rot: rnd(0, 6.3) });
+  if (W) bakeBg();
+}
+function cloudG(g, x, y, r){
+  g.beginPath();
+  g.arc(x, y, r, 0, 7); g.arc(x + r*.85, y + r*.15, r*.72, 0, 7); g.arc(x - r*.85, y + r*.2, r*.6, 0, 7);
+  g.fill();
+}
+function bakeBg(){
+  bg = bg || document.createElement("canvas");
+  bg.width = cv.width; bg.height = cv.height;
+  const g = bg.getContext("2d");
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // そら
+  const gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, TH.sky[0]); gr.addColorStop(.25, TH.sky[1]); gr.addColorStop(.5, TH.sky[2]); gr.addColorStop(1, TH.sky[3]);
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  if (TH.rainbow){
+    g.globalAlpha = .3; g.lineWidth = 10;
+    ["#ffb3c6","#ffd9a0","#fff3a8","#b6e8c6","#aed6ff","#d9c2ff"].forEach((c, i) => {
+      g.strokeStyle = c; g.beginPath();
+      g.arc(W*.5, H*.30, Math.min(W, H)*.42 - i*10, Math.PI*1.06, Math.PI*1.94); g.stroke();
+    });
+    g.globalAlpha = 1;
+  }
+  // おひさま／おつきさま
+  const sx = W - 58, sy = 118;
+  if (TH.orb === "sun"){
+    g.save(); g.translate(sx, sy);
+    g.globalAlpha = .65; g.fillStyle = TH.orbC;
+    for (let i = 0; i < 10; i++){ g.rotate(Math.PI/5); g.fillRect(-2.4, -45, 4.8, 13); }
+    g.restore();
+    g.globalAlpha = .9; g.fillStyle = TH.orbC; g.beginPath(); g.arc(sx, sy, 23, 0, 7); g.fill();
+    g.globalAlpha = .55; g.fillStyle = "#ffffff"; g.beginPath(); g.arc(sx - 7, sy - 7, 8, 0, 7); g.fill();
+    g.globalAlpha = 1;
+  } else {
+    g.fillStyle = TH.orbC; g.beginPath(); g.arc(sx, sy, 24, 0, 7); g.fill();
+    g.fillStyle = TH.sky[0]; g.beginPath(); g.arc(sx + 11, sy - 7, 21, 0, 7); g.fill();
+  }
+  g.fillStyle = TH.cloud;
+  cloudG(g, W*.16, 150, 24); cloudG(g, W*.62, 96, 17); cloudG(g, W*.86, 210, 19);
+  // しきもの（お盆が のって いる 地面）
+  g.beginPath();
+  for (let i = 0; i <= 96; i++){
+    const a = i/96*6.2832, p = proj(Math.cos(a)*RUG_R, GROUND_Y, Math.sin(a)*RUG_R);
+    if (i) g.lineTo(p.x, p.y); else g.moveTo(p.x, p.y);
+  }
+  g.closePath();
+  const c0 = proj(0, GROUND_Y, 0);
+  const rg = g.createRadialGradient(c0.x, c0.y, 0, c0.x, c0.y, RUG_R*c0.s);
+  rg.addColorStop(0, C.rug); rg.addColorStop(.75, C.rug); rg.addColorStop(1, C.rugEdge);
+  g.fillStyle = rg; g.fill();
+  g.lineWidth = 3; g.strokeStyle = C.rugEdge; g.stroke();
+  g.fillStyle = C.rugDot;
+  let row = 0;
+  for (let z = -RUG_R; z <= RUG_R; z += 60, row++)
+    for (let x = -RUG_R + (row % 2 ? 30 : 0); x <= RUG_R; x += 60){
+      if (x*x + z*z > (RUG_R - 30)*(RUG_R - 30)) continue;
+      const p = proj(x, GROUND_Y, z);
+      g.beginPath(); g.ellipse(p.x, p.y, 5*p.s, 5*p.s*SINP, 0, 0, 7); g.fill();
+    }
+}
+function drawDeco(){
+  for (const d of DECO){
+    const y = ((d.y*H - time*d.sp) % (H + 40) + H + 40) % (H + 40) - 20;
+    const x = d.x*W + Math.sin(time*.5 + d.ph)*10;
+    ctx.globalAlpha = .45; ctx.fillStyle = d.c;
+    if (d.t === "h") drawHeart(ctx, x, y, d.s);
+    else if (d.t === "s") starG(ctx, x, y, d.s*.85);
+    else if (d.t === "b"){
+      ctx.globalAlpha = .35; ctx.beginPath(); ctx.arc(x, y, d.s*.8, 0, 7); ctx.fill();
+      ctx.globalAlpha = .7; ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(x - d.s*.28, y - d.s*.28, d.s*.22, 0, 7); ctx.fill();
+    } else if (d.t === "w"){
+      ctx.beginPath(); ctx.arc(x, y, d.s*.40, 0, 7); ctx.fill();
+      ctx.save(); ctx.strokeStyle = d.c; ctx.lineWidth = Math.max(.7, d.s*.15); ctx.lineCap = "round";
+      ctx.translate(x, y); ctx.rotate(d.rot + time*.25);
+      for (let k = 0; k < 3; k++){ ctx.beginPath(); ctx.moveTo(-d.s*.68, 0); ctx.lineTo(d.s*.68, 0); ctx.stroke(); ctx.rotate(Math.PI/3); }
+      ctx.restore();
+    } else if (d.t === "r"){
+      ctx.save(); ctx.translate(x, y); ctx.beginPath();
+      ctx.moveTo(0, -d.s*.85); ctx.quadraticCurveTo(d.s*.44, d.s*.16, 0, d.s*.58);
+      ctx.quadraticCurveTo(-d.s*.44, d.s*.16, 0, -d.s*.85); ctx.closePath(); ctx.fill(); ctx.restore();
+    } else {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot + time*.9 + Math.sin(time + d.ph)*.5);
+      ctx.beginPath(); ctx.ellipse(0, 0, d.s*.75, d.s*.42, 0, 0, 7); ctx.fill(); ctx.restore();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* けしきと お盆を かえる（見送り SCENE_EVERY 回ごと・🎨ボタン） */
+let flashT = 0, sceneSwap = null, sends = 0;
+function changeScene(ti, si){
+  if (sceneSwap) return;
+  const th = (ti !== undefined) ? THEMES[ti] : pick(THEMES.filter(t => t !== TH));
+  const sh = (si !== undefined) ? SHAPES[si] : pick(SHAPES.filter(s => s !== SH));
+  sceneSwap = { th, sh, t:0 };
+  flashT = .55;
+}
+function doSwap(){
+  const { th, sh } = sceneSwap;
+  applyTheme(th); buildShape(sh); outs = [];
+  for (const b of balls){ b.vh = Math.max(b.vh, 160); b.h = Math.max(b.h, 1); makeShock(b, rnd(0, .1), .4, 1); }
+  toast(th.nm + " ・ " + sh.nm + "の お盆");
+  beep(880, .08, "triangle", .06); setTimeout(() => beep(1175, .12, "triangle", .06), 70);
+}
+
+/* ---------------- 子 ---------------- */
+let balls = [];
+let merges = [];
+let runners = [];     // 見送り（2匹で 1組）
+let fx = [];
+let pending = [];     // これから ふってくる 子（影だけ 先に 出る）
+let time = 0, spawnT = 0.4, lastRunT = -99;
+let chainLive = null; // いま つづいて いる 連鎖
+const nextQ = [pick(DROP_POOL), pick(DROP_POOL)];   // つぎに ふってくる 子
+let nextDirty = true;
+
+function newBall(tier, u, v){
+  const T = TIERS[tier];
+  return { tier, r: T.r, u, v, vu:0, vv:0, m: T.r*T.r, h:0, vh:0, ride:0,
+           state:"ok", age:0, chain:0, phase: rnd(0, 6.28), roll:0, lean:0,
+           sq:0, sqv:0, pop:1,
+           blink: rnd(1, 5), blinkT:0, smileT:0, smileDur:1, smileNext: rnd(3, 9),
+           surpT:0, surpDur:1, surpKind:1, surpWait:0, surpQ:0, surpKindQ:1, hitCool:0 };
+}
+
+/* 表情（本体と おなじ しくみ） */
+function makeSmile(b, d){ b.smileT = d; b.smileDur = d; b.smileNext = rnd(6, 16); }
+function makeShock(b, wait, dur, kind){
+  b.surpWait = wait; b.surpQ = dur; b.surpKindQ = kind || 1; b.smileT = 0;
+  b.smileNext = wait + dur + rnd(.05, .6);
+}
+function stepFace(b, dt){
+  b.blink -= dt;
+  if (b.blink <= 0){ b.blinkT = .13; b.blink = rnd(2.2, 7); }
+  if (b.blinkT > 0) b.blinkT -= dt;
+  if (b.surpWait > 0){
+    b.surpWait -= dt;
+    if (b.surpWait <= 0 && b.surpQ > 0){
+      b.surpT = b.surpQ; b.surpDur = b.surpQ; b.surpQ = 0; b.surpKind = b.surpKindQ;
+    }
+  }
+  if (b.surpT > 0) b.surpT -= dt;
+  b.smileNext -= dt;
+  if (b.smileNext <= 0 && b.smileT <= 0 && b.surpT <= 0 && b.surpQ <= 0) makeSmile(b, rnd(1.0, 1.9));
+  if (b.smileT > 0) b.smileT -= dt;
+}
+function smileAmt(b){
+  if (b.smileT <= 0) return 0;
+  const inT = b.smileDur - b.smileT;
+  return clamp(Math.min(inT/.18, b.smileT/.28), 0, 1);
+}
+function surpAmt(b){
+  if (b.surpT <= 0) return 0;
+  const inT = b.surpDur - b.surpT;
+  return clamp(Math.min(inT/.07, b.surpT/.3), 0, 1);
+}
+function blinkAmt(b){
+  if (b.blinkT > 0){
+    const p = 1 - b.blinkT/.13;
+    return Math.abs(p*2 - 1) < .9 ? Math.max(.05, Math.abs(p*2 - 1)) : 1;
+  }
+  return 1;
+}
+function kick(b, v){ b.sqv += v; }           // ぷにっと つぶれる
+
+/* ---------------- 音（本体の beep と おなじ） ---------------- */
+let AC = null, soundOn = true;
+function beep(freq, dur, type, vol, slide){
+  if (!soundOn) return;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq * (slide || 1.5), AC.currentTime + dur);
+    g.gain.setValueAtTime(vol || .12, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + dur + .02);
+  } catch(e){}
+}
+let thudCool = 0, boingCool = 0;
+
+/* ---------------- ふってくる ---------------- */
+function liveCount(){
+  return balls.length + pending.length + merges.length;   // 合体中の 2匹は 1人に なる
+}
+function findSpot(r){
+  for (let k = 0; k < 50; k++){
+    const u = rnd(-R*1.2, R*1.2), v = rnd(-R*1.2, R*1.2);
+    if (wallInfo(u, v).dist < r + 10) continue;
+    let ok = Math.hypot(u - gap.P.u, v - gap.P.v) > r + 70;
+    for (const o of OBS) if (Math.hypot(o.u - u, o.v - v) < o.r + r + 8) ok = false;
+    for (const b of balls){ if (Math.hypot(b.u-u, b.v-v) < b.r + r + 6){ ok = false; break; } }
+    if (ok) for (const p of pending){ if (Math.hypot(p.u-u, p.v-v) < p.r + r + 6){ ok = false; break; } }
+    if (ok) return { u, v };
+  }
+  return null;
+}
+function queueSpawn(){
+  if (!started) return false;
+  const tier = nextQ[0];
+  const r = TIERS[tier].r;
+  const s = findSpot(r);
+  if (!s) return false;
+  nextQ.shift(); nextQ.push(pick(DROP_POOL)); nextDirty = true;
+  pending.push({ tier, r, u:s.u, v:s.v, t:0, warn:.75 });
+  return true;
+}
+function stepPending(dt){
+  for (let i = pending.length-1; i >= 0; i--){
+    const p = pending[i];
+    p.t += dt;
+    if (p.t >= p.warn){
+      const b = newBall(p.tier, p.u, p.v);
+      b.state = "fall"; b.h = 360; b.vh = -120;
+      balls.push(b);
+      pending.splice(i, 1);
+    }
+  }
+}
+
+/* ============================================================
+   ぶつり
+   ------------------------------------------------------------
+   お盆の 上を (u, v)、ゆかからの 高さを h。子は 球として 3Dで ぶつかる。
+   ふちは「見えない壁」として 上まで のびて いて、とんでも 外へは 出ない。
+   ============================================================ */
+function landed(b){
+  // 着地。つよく おちたら ぽよんと はねる
+  if (b.vh < -150){
+    const imp = -b.vh;
+    b.vh = imp*E_FLOOR;
+    kick(b, -Math.min(4.2, imp/200));
+    if (imp > 260) dust(b.u, b.v, b.r, 4);
+    if (boingCool <= 0){ beep(170 + (LAST - b.tier)*24, .07, "sine", Math.min(.06, .02 + imp/9000)); boingCool = .06; }
+  } else { b.vh = 0; }
+  b.h = 0;
+}
+function physics(dt){
+  const SUB = 6, h = dt/SUB;
+  for (let s = 0; s < SUB; s++){
+    for (const b of balls){
+      if (b.state === "fall"){
+        b.vh -= GRAV*h; b.h += b.vh*h;
+        if (b.h <= 0){
+          b.state = "ok"; b.age = 0;
+          const imp = -b.vh;
+          b.h = 0; b.vh = imp*.25;
+          kick(b, -Math.min(4.5, imp/180));
+          b.blinkT = .13;
+          dust(b.u, b.v, b.r, 6);
+          beep(170 + (LAST - b.tier)*24, .07, "sine", .05);
+          for (const o of balls) if (o !== b && o.state === "ok" && Math.hypot(o.u-b.u, o.v-b.v) < b.r + o.r + 40){
+            makeShock(o, rnd(0, .06), .32, 1);
+            if (o.h <= 0) o.vh = Math.max(o.vh, 110);      // まわりの 子も ちょっと はねる
+          }
+        }
+        continue;
+      }
+      if (b.state !== "ok") continue;
+      b.vu += G_ROLL * tilt.u * h;
+      b.vv += G_ROLL * tilt.v * h;
+      const ground = b.h <= 0 && b.vh <= 0;
+      const sp = Math.hypot(b.vu, b.vv);
+      const dec = ground ? (ROLL_RES*h + sp*DRAG*h) : sp*.12*h;
+      if (sp <= dec){ b.vu = 0; b.vv = 0; }
+      else {
+        let k = (sp - dec) / sp;
+        if (sp*k > V_MAX) k = V_MAX / sp;
+        b.vu *= k; b.vv *= k;
+      }
+      b.u += b.vu*h; b.v += b.vv*h;
+      if (!ground){
+        b.vh -= GRAV*h; b.h += b.vh*h;
+        if (b.h <= 0) landed(b);
+        if (b.h + 2*b.r > CEIL){ b.h = CEIL - 2*b.r; if (b.vh > 0) b.vh = -b.vh*.5; }
+      }
+      b.roll += b.vu / b.r * h;
+    }
+    // 子どうし（球）
+    for (let i = 0; i < balls.length; i++){
+      const a = balls[i]; if (a.state === "fall") continue;
+      for (let j = i+1; j < balls.length; j++){
+        const b = balls[j]; if (b.state === "fall") continue;
+        const du = b.u - a.u, dv = b.v - a.v, dy = (b.h + b.r) - (a.h + a.r);
+        const rr = a.r + b.r;
+        const d2 = du*du + dv*dv + dy*dy;
+        if (d2 >= (rr + MERGE_PAD)*(rr + MERGE_PAD)) continue;
+        const d = Math.sqrt(d2) || 0.01;
+        if (a.tier === b.tier && a.state === "ok" && b.state === "ok" && a.age > .18 && b.age > .18 && !(a.noMerge > 0) && !(b.noMerge > 0)){
+          startMerge(a, b); continue;
+        }
+        if (a.state !== "ok" || b.state !== "ok") continue;
+        if (d >= rr) continue;
+        const nu = du/d, nv = dv/d, ny = dy/d;
+        const pen = rr - d;
+        const ia = 1/a.m, ib = 1/b.m, it = ia + ib;
+        a.u -= nu*pen*ia/it; a.v -= nv*pen*ia/it; a.h = Math.max(0, a.h - ny*pen*ia/it);
+        b.u += nu*pen*ib/it; b.v += nv*pen*ib/it; b.h = Math.max(0, b.h + ny*pen*ib/it);
+        const vn = (b.vu - a.vu)*nu + (b.vv - a.vv)*nv + (b.vh - a.vh)*ny;
+        if (vn < 0){
+          const j2 = -(1 + E_BALL)*vn / it;
+          a.vu -= j2*nu*ia; a.vv -= j2*nv*ia; a.vh -= j2*ny*ia;
+          b.vu += j2*nu*ib; b.vv += j2*nv*ib; b.vh += j2*ny*ib;
+          if (a.h <= 0 && a.vh < 0) a.vh = 0;
+          if (b.h <= 0 && b.vh < 0) b.vh = 0;
+          if (-vn > 200) bump(a, b, -vn);
+        }
+      }
+    }
+    // 見送りの 2匹は、とおり道を あけて もらう（そっと おしのける）
+    for (const g of runners){
+      if (g.stage > 2) continue;
+      for (const q of runnerPos(g)){
+        for (const b of balls){
+          if (b.state !== "ok") continue;
+          const du = b.u - q.u, dv = b.v - q.v;
+          const need = b.r + TIERS[LAST].r*1.1;
+          const d = Math.hypot(du, dv);
+          if (d < need && d > .01){
+            const push = (need - d) * .35;
+            b.u += du/d*push; b.v += dv/d*push;
+          }
+        }
+      }
+    }
+    // じゃまな 柱（高さに かかわらず はね返す）
+    for (const b of balls){
+      if (b.state !== "ok") continue;
+      for (const o of OBS){
+        const du = b.u - o.u, dv = b.v - o.v, d = Math.hypot(du, dv), need = b.r + o.r;
+        if (d >= need || d < .01) continue;
+        const nu = du/d, nv = dv/d;
+        b.u = o.u + nu*need; b.v = o.v + nv*need;
+        const vin = -(b.vu*nu + b.vv*nv);
+        if (vin > 0){
+          b.vu += (1 + E_RIM)*vin*nu; b.vv += (1 + E_RIM)*vin*nv;
+          if (vin > 150){
+            kick(b, -Math.min(2.2, vin/280));
+            if (b.hitCool <= 0){ makeShock(b, 0, .28, 1); b.hitCool = .6; }
+            if (thudCool <= 0){ beep(260, .05, "triangle", .04, .9); thudCool = .08; }
+          }
+        }
+      }
+    }
+    // ふち ＝ 見えない壁（高さに かかわらず はね返す）。切れ目だけは 小さい子が とおれる
+    for (const b of balls){
+      if (b.state !== "ok") continue;
+      if (GAP_ON && 2*b.r < GAP_HALF*2 && gapPass(b)) continue;
+      const w = wallInfo(b.u, b.v);
+      if (w.dist < b.r){
+        const push = b.r - w.dist;
+        b.u += w.nu*push; b.v += w.nv*push;
+        const vout = -(b.vu*w.nu + b.vv*w.nv);        // 外へ むかう 速さ
+        if (vout > 0){
+          b.vu += (1 + E_RIM)*vout*w.nu; b.vv += (1 + E_RIM)*vout*w.nv;
+          if (vout > 150){
+            kick(b, -Math.min(2.4, vout/260));
+            if (b.hitCool <= 0){ makeShock(b, 0, .3, 1); b.hitCool = .6; }
+            if (thudCool <= 0){ beep(130 + (LAST - b.tier)*16, .06, "sine", .045, .8); thudCool = .08; }
+            if (b.h <= 0 && vout > 260) b.vh = Math.max(b.vh, Math.min(260, vout*.28));   // ふちに あたって ぴょん
+          }
+        }
+      }
+    }
+    for (let i = balls.length - 1; i >= 0; i--) if (balls[i].state === "out") balls.splice(i, 1);
+  }
+}
+function bump(a, b, vn){
+  for (const x of [a, b]){
+    kick(x, -Math.min(2.2, vn/300));
+    if (x.hitCool <= 0){ makeShock(x, 0, .28, 1); x.hitCool = .7; }
+  }
+  // 小さい ほうが ぴょんと はねる
+  const lo = a.r < b.r ? a : b;
+  if (lo.h <= 1) lo.vh = Math.max(lo.vh, Math.min(VH_MAX*.6, vn*HOP_HIT));
+  if (thudCool <= 0){ beep(200 + (LAST - Math.max(a.tier, b.tier))*20, .05, "sine", .04, .85); thudCool = .08; }
+}
+/* お盆を ぐいっと 持ち上げると、のって いる 子が はねる */
+function flick(dt){
+  const du = (tilt.u - tiltPrev.u)/dt, dv = (tilt.v - tiltPrev.v)/dt;
+  for (const b of balls){
+    if (b.state !== "ok") continue;
+    const up = -(b.u*du + b.v*dv);          // その 子の 下の ゆかが 上へ うごく 速さ
+    if (b.h > 0){ b.ride = 0; continue; }
+    if (up > 60) b.ride = Math.max(b.ride, up);
+    else if (b.ride > 0){
+      const v = Math.min(VH_MAX, b.ride*FLICK_K);
+      if (v > 70){ b.vh = v; b.h = .5; kick(b, 1.2); }
+      b.ride = 0;
+    }
+  }
+}
+/* 連鎖の たね：生まれた ばかりの 子は、近くの なかま（おなじ子）を 引きよせる。
+   ふつうの 子どうしも、あと すこしで ふれる くらい 近ければ 弱く 引きあう。 */
+function magnet(dt){
+  for (let i = 0; i < balls.length; i++){
+    const a = balls[i]; if (a.state !== "ok") continue;
+    for (let j = i+1; j < balls.length; j++){
+      const b = balls[j]; if (b.state !== "ok" || b.tier !== a.tier) continue;
+      const du = b.u - a.u, dv = b.v - a.v, d = Math.hypot(du, dv) || 1;
+      const gap = d - a.r - b.r;
+      let acc = 0;
+      const fresh = (a.chain > 0 && a.age < CHAIN_WINDOW) || (b.chain > 0 && b.age < CHAIN_WINDOW);
+      if (fresh && d < MAGNET_R + a.r) acc = MAGNET_A * (1 - Math.max(0, gap)/MAGNET_R);
+      else if (gap < 24) acc = 420;
+      if (acc <= 0) continue;
+      a.vu += du/d*acc*dt; a.vv += dv/d*acc*dt;
+      b.vu -= du/d*acc*dt; b.vv -= dv/d*acc*dt;
+    }
+  }
+}
+
+/* ---------------- 合体 ---------------- */
+function startMerge(a, b){
+  a.state = "merge"; b.state = "merge";
+  merges.push({ a, b, t:0, mu:(a.u + b.u)/2, mv:(a.v + b.v)/2, mh:(a.h + b.h)/2 });
+}
+function stepMerges(dt){
+  for (let i = merges.length-1; i >= 0; i--){
+    const m = merges[i];
+    m.t += dt;
+    const k = 1 - Math.exp(-dt*28);
+    for (const x of [m.a, m.b]){
+      x.u += (m.mu - x.u)*k; x.v += (m.mv - x.v)*k; x.h += (m.mh - x.h)*k;
+    }
+    if (m.t >= .11){
+      merges.splice(i, 1);
+      finishMerge(m);
+    }
+  }
+}
+function chainColors(n){       // 本体と おなじ 色
+  if (n >= 8) return ["#FF6FA5","#FFD34D","#7FE0FF","#B79BFF"];
+  if (n >= 7) return ["#B79BFF","#FF9EDC","#FFD9F2"];
+  if (n >= 6) return ["#FF6F9B","#FFA6C6","#FFE3EE"];
+  if (n >= 5) return ["#FF9236","#FFC46B","#FFEBC2"];
+  return ["#FFC02E","#FFE07A","#FFF6C9"];
+}
+function finishMerge(m){
+  const { a, b, mu, mv, mh } = m;
+  balls = balls.filter(x => x !== a && x !== b);
+  const t = a.tier;
+  // 連鎖：合体で 生まれた 子が、生まれて すぐ（CHAIN_WINDOW 秒）また くっついた ときだけ 数える。
+  const par = [a, b].filter(x => x.chain > 0 && x.age < CHAIN_WINDOW + .3).map(x => x.chain);
+  const n = par.length ? Math.max(...par) + 1 : 1;
+  if (n >= 2){
+    chainLive = { n, u:mu, v:mv, t:time };
+    const cols = chainColors(n);
+    fx = fx.filter(f => !f.chainTxt);          // まえの「連鎖」の 字は けして 1つだけ 出す
+    fx.push({ t:"txt", chainTxt:true, u:mu, v:mv, h: 100, s:"連鎖 " + n, life:1.1, age:0, c: darken(cols[0], .38), size: 20 + Math.min(10, n*2) });
+    stars(mu, mv, cols, 10, 40, mh);
+    fx.push({ t:"ring", u:mu, v:mv, r0:30, r1:110 + n*10, life:.5, age:0, c:cols[0] });
+    beep(523.25 * Math.pow(1.122, n - 2), .1, "triangle", .1);
+  }
+
+  if (t === LAST){ startRunners(mu, mv); return; }
+
+  const nb = newBall(t + 1, mu, mv);
+  nb.vu = (a.vu + b.vu)/2 * .5; nb.vv = (a.vv + b.vv)/2 * .5;
+  nb.h = mh; nb.vh = 290;             // ぽんっと はねて 生まれる
+  nb.pop = 0; nb.age = 0; nb.chain = n;
+  kick(nb, -2.2);
+  makeSmile(nb, 1.5);
+  balls.push(nb);
+  stars(mu, mv, [TIERS[t].body, "#FFD86B", "#FF9FBB", "#9FD8FF", "#ffffff"], 12, a.r, mh);
+  fx.push({ t:"ring", u:mu, v:mv, r0:a.r*.4, r1:a.r*2.0, life:.45, age:0, c:TIERS[t].shade });
+  for (const o of balls) if (o !== nb && o.state === "ok" && Math.hypot(o.u-mu, o.v-mv) < a.r*2.4 + o.r)
+    makeShock(o, rnd(.02, .1), .3, 1);
+  beep(300 + t*95, .12, "sine", .1, .8);   // 小さく なる → 音も 下げる（本体と おなじ）
+}
+/* 連鎖が とぎれた しゅんかんに どーん（3連鎖から） */
+function chainFinale(c){
+  const cols = chainColors(c.n);
+  const pw = Math.min(2.2, 1 + (c.n - 3)*.3);
+  stars(c.u, c.v, cols, 16 + c.n*4, 50, 20, pw);
+  fx.push({ t:"ring", u:c.u, v:c.v, r0:40, r1:170*pw, life:.6, age:0, c:cols[0] });
+  setTimeout(() => fx.push({ t:"ring", u:c.u, v:c.v, r0:40, r1:230*pw, life:.6, age:0, c:cols[1] }), 70);
+  setTimeout(() => fx.push({ t:"ring", u:c.u, v:c.v, r0:40, r1:290*pw, life:.6, age:0, c:cols[2] || "#ffffff" }), 145);
+  fx.push({ t:"txt", u:c.u, v:c.v, h:150, s:"すごい！", life:1.5, age:0, c: darken(cols[0], .38), size: 30 });
+  flashT = Math.max(flashT, .18); flashSoft = true;
+  for (const b of balls){
+    makeShock(b, Math.min(.35, Math.hypot(b.u - c.u, b.v - c.v)/900), rnd(.45, .7), 1);
+    if (b.h <= 0 && b.state === "ok") b.vh = Math.max(b.vh, rnd(120, 200));   // みんなで ぴょん
+  }
+  const base = 523.25 * Math.pow(1.06, c.n - 3);
+  [1, 1.26, 1.5, 2].forEach((m, i) => setTimeout(() => beep(base*m, .17, "triangle", .12), i*58));
+  setTimeout(() => beep(base*3, .32, "sine", .09), 250);
+}
+
+/* ---------------- 見送り ---------------- */
+// 2匹は ならんで、近いほうの 門へ 走り、門を ぬけて しきものへ おりて、よこへ 走って いく。
+// 上へは 昇らせない。弾けさせない。振り返らせない（本体 設計判断3）。
+function startRunners(mu, mv){
+  const dR = Math.hypot(mu - gates[1].P.u, mv - gates[1].P.v);
+  const dL = Math.hypot(mu - gates[0].P.u, mv - gates[0].P.v);
+  const side = dR <= dL ? 1 : -1;
+  const light = time - lastRunT < 2;
+  lastRunT = time;
+  runners.push({ side, u:mu, v:mv, hy:0, stage:0, age:0, st:0, ph:rnd(0, 6), fu:side, fv:0, light });
+  for (const o of balls) if (o.state === "ok") makeSmile(o, rnd(1.0, 1.6));   // みんなで 見送る
+  stars(mu, mv, ["#FFE889", "#FFD86B", "#FF9FBB", "#ffffff"], light ? 6 : 12, 30, 0);
+  if (!light){
+    beep(1568, .09, "square", .10, 1.0);
+    setTimeout(() => beep(1318, .09, "square", .09, 1.0), 60);
+    setTimeout(() => beep(1046, .17, "triangle", .10, 1.0), 120);
+    setTimeout(() => beep(1568, .20, "sine", .07, 1.0), 210);
+  } else {
+    beep(1046, .07, "triangle", .07);
+    setTimeout(() => beep(1568, .09, "sine", .05), 60);
+  }
+  sends++;
+  if (sends % SCENE_EVERY === 0) setTimeout(() => changeScene(), 2200);   // 走りおわってから
+}
+/* 2匹の いち（すすむ 向きに たいして よこに ならぶ） */
+function runnerPos(g){
+  const pu = -g.fv, pv = g.fu;   // すすむ 向きに 直角
+  const o = RUN_SP/2;
+  return [{ u:g.u + pu*o, v:g.v + pv*o, k:0 }, { u:g.u - pu*o, v:g.v - pv*o, k:1 }];
+}
+function stepRunners(dt){
+  for (let i = runners.length-1; i >= 0; i--){
+    const g = runners[i];
+    g.age += dt; g.st += dt;
+    const gt = gateOf(g.side);
+    let tu, tv, spd;
+    if (g.stage === 0){                         // ぽんっと 出て その場で はねる
+      g.hy = floorY(g.u, g.v);
+      if (g.st > .28){ g.stage = 1; g.st = 0; }
+      continue;
+    }
+    if (g.stage === 1){ const p = gpt(gt, -30, 0); tu = p.u; tv = p.v; spd = 190; }             // 門へ
+    else if (g.stage === 2){ const p = gpt(gt, RIM_W + 42, 0); tu = p.u; tv = p.v; spd = 170; } // 門を ぬける
+    else { tu = g.side*(R + 1400); tv = g.v; spd = 250; }                                       // しきものを よこへ
+    const du = tu - g.u, dv = tv - g.v, d = Math.hypot(du, dv);
+    if (d > 1){
+      const nu = du/d, nv = dv/d;
+      g.fu += (nu - g.fu)*Math.min(1, dt*8); g.fv += (nv - g.fv)*Math.min(1, dt*8);
+      const n = Math.hypot(g.fu, g.fv) || 1; g.fu /= n; g.fv /= n;
+      const step = Math.min(d, spd*dt);
+      g.u += nu*step; g.v += nv*step;
+    }
+    if (g.stage === 1 && d < 6){ g.stage = 2; g.st = 0; }
+    else if (g.stage === 2 && d < 6){ g.stage = 3; g.st = 0; g.y0 = floorY(g.u, g.v); }
+    if (g.stage === 3){
+      // しきものへ ぴょんと おりる（下へ。上には いかない）
+      const k = Math.min(1, g.st / .32);
+      g.hy = g.y0*(1 - k) + GROUND_Y*k + Math.sin(k*Math.PI)*18;
+      if (k >= 1) g.stage = 4;
+      if (Math.random() < dt*20) dustW(g.u, g.hy, g.v, 3);
+    } else if (g.stage === 4){
+      g.hy = GROUND_Y;
+      if (Math.random() < dt*14) dustW(g.u - g.side*14, GROUND_Y, g.v + rnd(-20, 20), 2);
+      const p = proj(g.u - g.side*RUN_SP, GROUND_Y, g.v);
+      if ((g.side > 0 && p.x > W + 80) || (g.side < 0 && p.x < -80)){
+        runners.splice(i, 1);
+        continue;
+      }
+    } else {
+      g.hy = floorY(g.u, g.v);
+      if (Math.random() < dt*12) dust(g.u - g.fu*16, g.v - g.fv*16, 10, 1);
+    }
+  }
+  // 門の とびら：走る 子が 近いときだけ ひらく
+  for (const gt of gates){
+    let want = 0;
+    const c = gpt(gt, RIM_W/2, 0);
+    for (const g of runners) if (g.side === gt.side && g.stage >= 1 && g.stage <= 3 &&
+                                 Math.hypot(g.u - c.u, g.v - c.v) < 120) want = 1;
+    gt.open += ((want ? 1 : 0) - gt.open) * Math.min(1, dt*(want ? 9 : 3));
+  }
+}
+
+/* ---------------- こまかい 演出 ---------------- */
+function stars(u, v, cols, n, r, h0, pw){
+  pw = pw || 1;
+  for (let i = 0; i < n; i++){
+    const a = rnd(0, 6.283), sp = rnd(50, 170)*pw;
+    fx.push({ t:"star", u:u + Math.cos(a)*r*.4, v:v + Math.sin(a)*r*.4, h: (h0 || 0) + r*.9,
+              vu:Math.cos(a)*sp, vv:Math.sin(a)*sp, vh: rnd(40, 170)*Math.sqrt(pw),
+              s: rnd(5.5, 9.5)*Math.sqrt(pw), rot: rnd(0, 6), c: pick(cols), life: rnd(.6, .95), age:0 });
+  }
+}
+function dust(u, v, r, n){
+  for (let i = 0; i < n; i++){
+    const a = rnd(0, 6.283);
+    fx.push({ t:"dust", u:u + Math.cos(a)*r*.8, v:v + Math.sin(a)*r*.8, wy:null, s:rnd(3, 6),
+              vu:Math.cos(a)*rnd(20, 60), vv:Math.sin(a)*rnd(20, 60), life:rnd(.3, .5), age:0 });
+  }
+}
+function dustW(u, y, v, n){   // しきものの 上の すなぼこり（世界の 高さを じかに もつ）
+  for (let i = 0; i < n; i++)
+    fx.push({ t:"dust", u:u + rnd(-8, 8), v:v + rnd(-6, 6), wy:y, s:rnd(3, 5.5),
+              vu:rnd(-20, 20), vv:rnd(-10, 10), life:rnd(.3, .5), age:0 });
+}
+function stepFx(dt){
+  for (let i = fx.length-1; i >= 0; i--){
+    const f = fx[i];
+    f.age += dt;
+    if (f.age >= f.life){ fx.splice(i, 1); continue; }
+    if (f.t === "star"){
+      f.vh -= 700*dt;
+      f.u += f.vu*dt; f.v += f.vv*dt; f.h += f.vh*dt;
+      if (f.h < 2){ f.h = 2; f.vh = -f.vh*.3; f.vu *= .6; f.vv *= .6; }   // 粒は 下へ おちて お盆に のる
+      f.rot += dt*4;
+    } else if (f.t === "dust"){
+      f.u += f.vu*dt; f.v += f.vv*dt;
+    }
+  }
+}
+let toastT = 0;
+function toast(s){
+  const el = document.getElementById("toast");
+  el.textContent = s; el.classList.add("on"); toastT = 2.2;
+}
+
+/* ============================================================
+   ふちの 切れ目（第3版）
+   ------------------------------------------------------------
+   おくがわの どこか 1か所。はばは GAP_HALF×2。それより 小さい子（いぬ・ねこ・ひよこ）は
+   ここから 出て いって しまい、もう もどらない。出て いく 子は **びっくり顔**
+   （作者の 注文）。落ちて 消えるのでは なく、すべり台を おりて しきものの 上を
+   ころころ 遠くへ 転がって いく 絵に して ある。
+   ============================================================ */
+let outs = [];
+function wallPush(b, w){
+  if (w.dist >= b.r) return;
+  const push = b.r - w.dist;
+  b.u += w.nu*push; b.v += w.nv*push;
+  const vout = -(b.vu*w.nu + b.vv*w.nv);
+  if (vout > 0){ b.vu += (1 + E_RIM)*vout*w.nu; b.vv += (1 + E_RIM)*vout*w.nv; }
+}
+/* 切れ目の 口に いる 小さい子を あつかう。あつかったら true（ふつうの 壁は かけない） */
+function gapPass(b){
+  const du = b.u - gap.P.u, dv = b.v - gap.P.v;
+  const along = du*gap.t.u + dv*gap.t.v, across = du*gap.n.u + dv*gap.n.v;
+  if (across < -b.r - 2 || Math.abs(along) > GAP_HALF) return false;
+  // 切れ目の 両はしの ふち（かどに ぶつかる）
+  for (const sg of [-1, 1]){
+    const c = clamp(across, 0, RIM_W);
+    const eu = gap.P.u + gap.t.u*sg*GAP_HALF + gap.n.u*c, ev = gap.P.v + gap.t.v*sg*GAP_HALF + gap.n.v*c;
+    const x = b.u - eu, y = b.v - ev, d = Math.hypot(x, y);
+    if (d < b.r && d > .01){
+      const nu = x/d, nv = y/d;
+      b.u = eu + nu*b.r; b.v = ev + nv*b.r;
+      const vin = -(b.vu*nu + b.vv*nv);
+      if (vin > 0){ b.vu += (1 + E_RIM)*vin*nu; b.vv += (1 + E_RIM)*vin*nv; }
+    }
+  }
+  if (across < 0) wallPush(b, wallInfo(b.u, b.v, true));
+  if (across > b.r*.3) escape(b);
+  return true;
+}
+function escape(b){
+  b.state = "out";
+  const vn = b.vu*gap.n.u + b.vv*gap.n.v;
+  const add = Math.max(0, 150 - vn);
+  outs.push({ tier:b.tier, r:b.r, u:b.u, v:b.v, vu:b.vu + gap.n.u*add, vv:b.vv + gap.n.v*add,
+              y: floorY(b.u, b.v) + b.h, vy: Math.max(0, b.vh), age:0, phase:b.phase, roll:b.roll, sq:0, sqv:0 });
+  fx.push({ t:"txt", u:b.u, v:b.v, h: b.r*2 + 20, s:"あっ！", life:1.0, age:0, c:"#7a6a9a", size:20 });
+  for (const o of balls) if (o !== b && o.state === "ok" && Math.hypot(o.u - b.u, o.v - b.v) < 170) makeShock(o, rnd(.05, .2), .5, 1);
+  beep(700, .45, "sine", .06, .45);      // ひゅ〜（下がる 音）
+}
+function stepOuts(dt){
+  for (let i = outs.length - 1; i >= 0; i--){
+    const o = outs[i];
+    o.age += dt;
+    o.u += o.vu*dt; o.v += o.vv*dt;
+    const sp = Math.hypot(o.vu, o.vv);
+    if (sp > 130){ o.vu *= 1 - .4*dt; o.vv *= 1 - .4*dt; }
+    o.roll += (o.vu/o.r)*dt;
+    const across = (o.u - gap.P.u)*gap.n.u + (o.v - gap.P.v)*gap.n.v;
+    if (across < RIM_W + 2){ o.y = floorY(o.u, o.v); o.vy = 0; }
+    else if (across < RIM_W + 60){                         // すべり台を おりる
+      const k = (across - RIM_W - 2)/58;
+      o.y = floorY(gap.P.u, gap.P.v)*(1 - k) + GROUND_Y*k;
+    } else {
+      o.vy -= GRAV*dt; o.y += o.vy*dt;
+      if (o.y <= GROUND_Y){ if (o.vy < -150) o.sqv -= 2; o.y = GROUND_Y; o.vy = o.vy < -150 ? -o.vy*.3 : 0; }
+    }
+    o.sqv += (-o.sq*260 - o.sqv*14)*dt; o.sq = clamp(o.sq + o.sqv*dt, -.3, .3);
+    if (o.age > 3.4) outs.splice(i, 1);
+  }
+}
+function outAcross(o){ return (o.u - gap.P.u)*gap.n.u + (o.v - gap.P.v)*gap.n.v; }
+function drawOut(o){
+  const p = proj(o.u, o.y + o.r, o.v);
+  const a = o.age > 2.6 ? Math.max(0, (3.4 - o.age)/.8) : 1;
+  const sp = proj(o.u, o.y, o.v);
+  ctx.globalAlpha = .18*a; ctx.fillStyle = "#6a5040";
+  ctx.beginPath(); ctx.ellipse(sp.x, sp.y, o.r*.9*sp.s, o.r*.9*sp.s*SINP, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = a;
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.s, p.s);
+  const ph = o.phase + time*.6;
+  // びっくり顔の まま（su＝1）
+  drawCreature(ctx, o.tier, o.r, ph, 1, o.sq, 0, 1, 1, 0, 0, 0, ph - o.roll*TIERS[o.tier].fluff*.5);
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+/* 切れ目の そとがわ：しきい と すべり台（お盆の ゆかより 先に えがく） */
+function drawGapOutside(){
+  if (!GAP_ON) return;
+  const n = 4;
+  for (let k = 0; k < n; k++){
+    const t0 = -GAP_HALF + 2*GAP_HALF*k/n, t1 = -GAP_HALF + 2*GAP_HALF*(k + 1)/n;
+    const a = gpt(gap, -2, t0), b = gpt(gap, -2, t1), c = gpt(gap, RIM_W, t1), e = gpt(gap, RIM_W, t0);
+    quad(trayP(a.u, 0, a.v), trayP(b.u, 0, b.v), trayP(c.u, 0, c.v), trayP(e.u, 0, e.v), k % 2 ? "#ffffff" : "#FFE27A");
+    const f = gpt(gap, RIM_W + 60, t1), g = gpt(gap, RIM_W + 60, t0);
+    quad(trayP(e.u, 0, e.v), trayP(c.u, 0, c.v), proj(f.u, GROUND_Y, f.v), proj(g.u, GROUND_Y, g.v), k % 2 ? "#ffffff" : "#FFE27A");
+  }
+  for (const o of outs) if (outAcross(o) > RIM_W + 2) drawOut(o);
+}
+/* 切れ目の 両はしの ふちの 切り口と、小さな はた（ここが あいて いるよ、の しるし） */
+function drawGapCaps(){
+  if (!GAP_ON) return;
+  for (const sg of [-1, 1]){
+    const i0 = gpt(gap, 0, sg*GAP_HALF), o0 = gpt(gap, RIM_W, sg*GAP_HALF);
+    quad(trayP(i0.u, 0, i0.v), trayP(o0.u, -BASE_H, o0.v), trayP(o0.u, RIM_H, o0.v), trayP(i0.u, RIM_H, i0.v), C.rimOut);
+    const m = gpt(gap, RIM_W/2, sg*(GAP_HALF + 4));
+    const b = trayP(m.u, RIM_H, m.v), t = trayP(m.u, RIM_H + 34, m.v);
+    ctx.strokeStyle = C.line; ctx.lineWidth = Math.max(1.5, 2.6*b.s); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+    const f = trayP(m.u + gap.t.u*sg*16, RIM_H + 27, m.v + gap.t.v*sg*16);
+    const t2 = trayP(m.u, RIM_H + 20, m.v);
+    ctx.fillStyle = "#FF9F6B";
+    ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(f.x, f.y + Math.sin(time*5 + sg)*1.5); ctx.lineTo(t2.x, t2.y); ctx.closePath(); ctx.fill();
+  }
+}
+
+/* ============================================================
+   つむじかぜ（第3版）
+   ------------------------------------------------------------
+   ときどき お盆に あらわれて うろうろ する 小さな 風。動物では ない。
+   ふれた 子は くるっと 回って **合体まえの 2人に もどる**（ひとつ 大きい子 2人）。
+   いちばん 大きい子（らいおん）は もどる 先が ないので、くるっと 回るだけ。
+   1回 いたずら したら ふっと 消える（何度も こわされると つらいので）。
+   ============================================================ */
+let ww = null, wwT = WW_EVERY*.7;
+function spawnWW(u, v){
+  if (u === undefined){
+    for (let k = 0; k < 60; k++){
+      const x = rnd(-R, R), y = rnd(-R, R);
+      if (wallInfo(x, y).dist < 70) continue;
+      let ok = true;
+      for (const b of balls) if (Math.hypot(b.u - x, b.v - y) < b.r + WW_R + 30) ok = false;
+      for (const o of OBS) if (Math.hypot(o.u - x, o.v - y) < o.r + WW_R + 20) ok = false;
+      if (ok){ u = x; v = y; break; }
+    }
+    if (u === undefined) return false;
+  }
+  ww = { u, v, dir: rnd(0, 6.28), age:0, life: WW_LIFE, spin:0 };
+  beep(260, .5, "sine", .035, 2.4); setTimeout(() => beep(340, .45, "sine", .03, 2.2), 120);
+  return true;
+}
+function stepWW(dt){
+  if (!ww){
+    if (started && balls.length >= 4){ wwT -= dt; if (wwT <= 0){ if (spawnWW()) wwT = WW_EVERY; else wwT = 1; } }
+    return;
+  }
+  const w0 = ww;
+  w0.age += dt; w0.spin += dt*9;
+  if (w0.age >= w0.life){ ww = null; return; }
+  // うろうろ：向きを すこしずつ かえる。ふちと 柱は よける
+  w0.dir += rnd(-2.2, 2.2)*dt;
+  let du = Math.cos(w0.dir), dv = Math.sin(w0.dir);
+  const w = wallInfo(w0.u, w0.v);
+  if (w.dist < 80){ const k = (80 - w.dist)/80; du += w.nu*k*2; dv += w.nv*k*2; }
+  for (const o of OBS){
+    const x = w0.u - o.u, y = w0.v - o.v, d = Math.hypot(x, y);
+    if (d < o.r + WW_R + 30){ du += x/d*1.5; dv += y/d*1.5; }
+  }
+  const l = Math.hypot(du, dv) || 1; du /= l; dv /= l;
+  w0.dir = Math.atan2(dv, du);
+  w0.u += du*WW_SPEED*dt; w0.v += dv*WW_SPEED*dt;
+  const w2 = wallInfo(w0.u, w0.v);
+  if (w2.dist < WW_R){ w0.u += w2.nu*(WW_R - w2.dist); w0.v += w2.nv*(WW_R - w2.dist); }
+  if (w0.age > w0.life - .8) return;                  // 消えかけは もう さわらない
+  for (const b of balls){
+    if (b.state !== "ok" || b.h > 90) continue;
+    const x = b.u - w0.u, y = b.v - w0.v, d = Math.hypot(x, y) || 1;
+    // まわりを すこし まわす
+    if (d < b.r + 80){ b.vu += (-y/d)*170*dt; b.vv += (x/d)*170*dt; }
+    if (d < b.r + WW_R*.8 && !(b.wwCool > 0)){
+      if (b.tier > 0){ splitBall(b, w0); w0.life = Math.min(w0.life, w0.age + .8); return; }
+      b.spinT = .45; b.spinDir = 1; b.wwCool = 1.6; makeShock(b, 0, .5, 1);
+      b.vu += x/d*160; b.vv += y/d*160;
+      beep(420, .18, "triangle", .05, 1.4);
+    }
+  }
+}
+function splitBall(b, w0){
+  const t = b.tier, pt = t - 1, rp = TIERS[pt].r;
+  const ax = Math.atan2(b.v - w0.v, b.u - w0.u) + Math.PI/2;
+  const cu = Math.cos(ax), cv0 = Math.sin(ax);
+  balls = balls.filter(x => x !== b);
+  const kids = [];
+  for (const sg of [-1, 1]){
+    const nb = newBall(pt, b.u + cu*sg*rp*1.02, b.v + cv0*sg*rp*1.02);
+    nb.vu = b.vu*.3 + cu*sg*150; nb.vv = b.vv*.3 + cv0*sg*150;
+    nb.h = b.h; nb.vh = 240; nb.pop = .35; nb.age = 1;
+    nb.spinT = .45; nb.spinDir = sg; nb.noMerge = 1.6; nb.wwCool = 3;
+    makeShock(nb, 0, .6, 1);
+    balls.push(nb); kids.push(nb);
+  }
+  stars(b.u, b.v, ["#BFE6FF", "#ffffff", "#DCCBFF", TIERS[pt].body], 12, b.r, b.h);
+  fx.push({ t:"ring", u:b.u, v:b.v, r0:b.r*.4, r1:rp*2.4, life:.45, age:0, c:"#9FC9EE" });
+  fx.push({ t:"txt", u:b.u, v:b.v, h: rp*2 + 30, s:"もどっちゃった！", life:1.1, age:0, c:"#5c7fa8", size:17 });
+  for (const o of balls) if (!kids.includes(o) && o.state === "ok" && Math.hypot(o.u - b.u, o.v - b.v) < 160) makeShock(o, rnd(.02, .12), .35, 1);
+  // 合体（下がる 音）の 反対：上がる 音
+  beep(300 + pt*95, .14, "sine", .1, 1.7);
+  setTimeout(() => beep(420 + pt*95, .12, "sine", .07, 1.5), 90);
+}
+function drawWW(){
+  if (!ww) return;
+  const w0 = ww;
+  const a = Math.min(1, w0.age/.6) * (w0.age > w0.life - .8 ? Math.max(0, (w0.life - w0.age)/.8) : 1);
+  const base = trayP(w0.u, 0, w0.v);
+  ctx.globalAlpha = .16*a; ctx.fillStyle = "#6a7a90";
+  ctx.beginPath(); ctx.ellipse(base.x, base.y, WW_R*base.s, WW_R*base.s*SINP, 0, 0, 7); ctx.fill();
+  ctx.lineCap = "round";
+  for (let k = 0; k < 8; k++){
+    const hk = 4 + k*12, rad = WW_R*(.42 + k*.16);
+    const wob = Math.sin(w0.age*4 + k*.9)*4;
+    const p = trayP(w0.u + wob, hk, w0.v);
+    const rx = rad*p.s, ry = rx*SINP*.95;
+    const st = w0.spin + k*.8;
+    ctx.globalAlpha = .55*a; ctx.strokeStyle = "#6FA6D6"; ctx.lineWidth = Math.max(2.5, 5.6*p.s);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0, st, st + 3.6); ctx.stroke();
+    ctx.globalAlpha = .95*a; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = Math.max(1.5, 3.2*p.s);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0, st, st + 3.6); ctx.stroke();
+    ctx.globalAlpha = .55*a; ctx.strokeStyle = "#A9D4F5"; ctx.lineWidth = Math.max(1, 2*p.s);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx*.8, ry*.8, 0, st + 2.4, st + 4.6); ctx.stroke();
+  }
+  // くるくる まわる はっぱ
+  for (let k = 0; k < 3; k++){
+    const an = w0.spin*.8 + k*2.09, hk = 18 + k*18, rad = WW_R*(.7 + k*.25);
+    const p = trayP(w0.u + Math.cos(an)*rad, hk, w0.v + Math.sin(an)*rad);
+    ctx.globalAlpha = .9*a; ctx.fillStyle = k === 1 ? "#FFB8D2" : "#9BCB52";
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(an*2);
+    ctx.beginPath(); ctx.ellipse(0, 0, 4.5*p.s, 2.4*p.s, 0, 0, 7); ctx.fill(); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------- じゃまな 柱（つみき）を えがく ---------------- */
+function drawObstacle(o){
+  const b = trayP(o.u, 0, o.v), t = trayP(o.u, OB_H, o.v);
+  const rx = o.r*b.s, ry = rx*SINP, rxt = o.r*t.s, ryt = rxt*SINP;
+  // 影
+  ctx.globalAlpha = .2; ctx.fillStyle = "#6a5040";
+  ctx.beginPath(); ctx.ellipse(b.x + 3*b.s, b.y + 2*b.s, rx*1.15, ry*1.15, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+  // よこ
+  ctx.beginPath();
+  ctx.moveTo(t.x - rxt, t.y); ctx.lineTo(b.x - rx, b.y);
+  ctx.ellipse(b.x, b.y, rx, ry, 0, Math.PI, 0, true);
+  ctx.lineTo(t.x + rxt, t.y); ctx.closePath();
+  const gr = ctx.createLinearGradient(b.x - rx, 0, b.x + rx, 0);
+  gr.addColorStop(0, C.arch); gr.addColorStop(.45, mix(C.arch, "#ffffff", .35)); gr.addColorStop(1, C.archL);
+  ctx.fillStyle = gr; ctx.fill();
+  ctx.strokeStyle = C.archL; ctx.lineWidth = Math.max(1, 1.4*b.s); ctx.stroke();
+  // しろい おび
+  const m = trayP(o.u, OB_H*.5, o.v);
+  ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 5*m.s;
+  ctx.beginPath(); ctx.ellipse(m.x, m.y, o.r*m.s*.99, o.r*m.s*SINP*.99, 0, 0, Math.PI); ctx.stroke();
+  // うえ
+  ctx.fillStyle = mix(C.arch, "#ffffff", .55);
+  ctx.beginPath(); ctx.ellipse(t.x, t.y, rxt, ryt, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = C.archL; ctx.lineWidth = Math.max(1, 1.4*t.s); ctx.stroke();
+  ctx.fillStyle = C.arch;
+  drawHeart(ctx, t.x, t.y, 7*t.s);
+}
+
+/* ---------------- 入力：傾ける ---------------- */
+const keys = {};
+let drag = null;
+let sensor = { on:false, has:false, x:0, y:0, x0:null, y0:null };
+const SENS_DEG = 20;     // スマホを 何度 傾けたら 上限か
+
+addEventListener("keydown", e => {
+  const k = e.key;
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","a","d","w","s"].includes(k)){ keys[k] = true; e.preventDefault(); }
+});
+addEventListener("keyup", e => { keys[e.key] = false; });
+cv.addEventListener("pointerdown", e => {
+  drag = { x0:e.clientX, y0:e.clientY, x:e.clientX, y:e.clientY, id:e.pointerId };
+  try { cv.setPointerCapture(e.pointerId); } catch(_){}
+});
+cv.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id){ drag.x = e.clientX; drag.y = e.clientY; } });
+function endDrag(e){ if (drag && e.pointerId === drag.id) drag = null; }
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+
+function screenAngle(){
+  if (screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  return typeof window.orientation === "number" ? window.orientation : 0;
+}
+function onOrient(e){
+  if (e.beta == null || e.gamma == null) return;
+  const a = ((screenAngle() % 360) + 360) % 360;
+  let x, y;
+  if (a === 90){ x = e.beta; y = -e.gamma; }
+  else if (a === 270){ x = -e.beta; y = e.gamma; }
+  else if (a === 180){ x = -e.gamma; y = -e.beta; }
+  else { x = e.gamma; y = e.beta; }
+  sensor.x = x; sensor.y = y; sensor.has = true;
+  if (sensor.x0 === null){ sensor.x0 = x; sensor.y0 = y; }   // さいしょの 持ちかたを「まっすぐ」に
+}
+function level(){ sensor.x0 = sensor.x; sensor.y0 = sensor.y; }
+async function enableSensor(){
+  try {
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function"){
+      const r = await DeviceOrientationEvent.requestPermission();   // iPhone は 1回 きく
+      if (r !== "granted") return;
+    }
+    addEventListener("deviceorientation", onOrient);
+    sensor.on = true;
+  } catch(e){}
+}
+
+let testTilt = null;   // 確かめ用
+function readInput(){
+  if (testTilt){ tiltT.u = testTilt.u; tiltT.v = testTilt.v; return; }
+  let u = 0, v = 0;
+  if (drag){
+    const m = Math.min(W, H) * .28;
+    u = (drag.x - drag.x0) / m; v = (drag.y - drag.y0) / m;
+  } else if (keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown || keys.a || keys.d || keys.w || keys.s){
+    u = ((keys.ArrowRight || keys.d) ? 1 : 0) - ((keys.ArrowLeft || keys.a) ? 1 : 0);
+    v = ((keys.ArrowDown || keys.s) ? 1 : 0) - ((keys.ArrowUp || keys.w) ? 1 : 0);
+  } else if (sensor.on && sensor.has){
+    u = (sensor.x - sensor.x0) / SENS_DEG;
+    v = (sensor.y - sensor.y0) / SENS_DEG;
+    const m = Math.hypot(u, v), dz = .08;      // まっすぐ の まわりは すこし あそび
+    if (m < dz){ u = 0; v = 0; } else { const k = (m - dz)/(1 - dz)/m; u *= k; v *= k; }
+  }
+  const m = Math.hypot(u, v);
+  if (m > 1){ u /= m; v /= m; }
+  tiltT.u = u * MAX_TILT; tiltT.v = v * MAX_TILT;
+  levelBtn.style.display = (sensor.on && sensor.has) ? "" : "none";
+}
+
+/* ---------------- 更新 ---------------- */
+let started = false, flashSoft = false;
+function update(dt){
+  time += dt;
+  readInput();
+  tiltPrev.u = tilt.u; tiltPrev.v = tilt.v;
+  const k = 1 - Math.exp(-dt / TILT_EASE);
+  tilt.u += (tiltT.u - tilt.u)*k; tilt.v += (tiltT.v - tilt.v)*k;
+  if (thudCool > 0) thudCool -= dt;
+  if (boingCool > 0) boingCool -= dt;
+
+  if (started){
+    spawnT -= dt;
+    if (spawnT <= 0){
+      if (liveCount() < CAP){ spawnT = queueSpawn() ? SPAWN_EVERY : .5; }
+      else spawnT = .8;
+    }
+  }
+  if (dt > 0) flick(dt);
+  magnet(dt);
+  stepPending(dt);
+  physics(dt);
+  stepMerges(dt);
+  stepRunners(dt);
+  stepOuts(dt);
+  stepWW(dt);
+  stepFx(dt);
+  if (chainLive && time - chainLive.t > CHAIN_WINDOW + .35){
+    if (chainLive.n >= 3) chainFinale(chainLive);
+    chainLive = null;
+  }
+  if (sceneSwap){
+    sceneSwap.t += dt;
+    if (sceneSwap.t >= .2 && !sceneSwap.done){ sceneSwap.done = true; doSwap(); }
+    if (sceneSwap.t >= .6) sceneSwap = null;
+  }
+  if (flashT > 0){ flashT -= dt; if (flashT <= 0) flashSoft = false; }
+  if (toastT > 0){ toastT -= dt; if (toastT <= 0) document.getElementById("toast").classList.remove("on"); }
+  for (const b of balls){
+    b.age += dt;
+    if (b.hitCool > 0) b.hitCool -= dt;
+    b.sqv += (-b.sq*260 - b.sqv*14) * dt;      // ぷにっと（ばね）
+    b.sq += b.sqv * dt;
+    b.sq = clamp(b.sq, -.3, .3);
+    if (b.pop < 1) b.pop = Math.min(1, b.pop + dt/.34);
+    b.lean += (clamp(b.vu/500, -1, 1)*.14 - b.lean) * Math.min(1, dt*8);   // すすむ 向きに かたむく
+    if (b.spinT > 0) b.spinT -= dt;
+    if (b.noMerge > 0) b.noMerge -= dt;
+    if (b.wwCool > 0) b.wwCool -= dt;
+    stepFace(b, dt);
+  }
+}
+
+/* ---------------- えがく ---------------- */
+function quad(p1, p2, p3, p4, fill){
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+}
+/* ふち。おくがわ（内かべが こちらを 向く ところ）は 子より 先に えがく。
+   てまえがわ（上＋外かべ）は 1こまずつ 子と いっしょに 奥から ならべる（rimItems）。 */
+function segBack(i){ const n0 = NRM[i], n1 = NRM[(i + 1) % N_SEG]; return (n0.v + n1.v) < 0; }
+function rimSeg(i, part){
+  const j = (i + 1) % N_SEG;
+  const I0 = IN[i], I1 = IN[j], O0 = OUT[i], O1 = OUT[j];
+  const iT0 = trayP(I0.u, RIM_H, I0.v), iT1 = trayP(I1.u, RIM_H, I1.v);
+  const oT0 = trayP(O0.u, RIM_H, O0.v), oT1 = trayP(O1.u, RIM_H, O1.v);
+  ctx.lineCap = "round"; ctx.strokeStyle = C.line; ctx.lineWidth = Math.max(1, iT0.s*1.6);
+  if (part === "back"){
+    const iB0 = trayP(I0.u, 0, I0.v), iB1 = trayP(I1.u, 0, I1.v);
+    quad(iB0, iB1, iT1, iT0, C.rimIn);
+    quad(iT0, iT1, oT1, oT0, C.rimTop);
+  } else {
+    const oB0 = trayP(O0.u, -BASE_H, O0.v), oB1 = trayP(O1.u, -BASE_H, O1.v);
+    quad(oT0, oT1, oB1, oB0, C.rimOut);
+    quad(iT0, iT1, oT1, oT0, C.rimTop);
+    ctx.beginPath(); ctx.moveTo(oB0.x, oB0.y); ctx.lineTo(oB1.x, oB1.y); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(iT0.x, iT0.y); ctx.lineTo(iT1.x, iT1.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(oT0.x, oT0.y); ctx.lineTo(oT1.x, oT1.y); ctx.stroke();
+}
+function drawRimBack(){
+  ctx.lineJoin = "round";
+  for (let i = 0; i < N_SEG; i++) if (segBack(i) && !SEG_OPEN[i]) rimSeg(i, "back");
+  drawGapCaps();
+}
+function rimItems(items){
+  for (let i = 0; i < N_SEG; i++){
+    if (segBack(i) || SEG_OPEN[i]) continue;
+    const j = (i + 1) % N_SEG;
+    const mu = (IN[i].u + OUT[j].u)/2, mv = (IN[i].v + OUT[j].v)/2;
+    items.push({ d: trayP(mu, RIM_H, mv).d, draw: () => rimSeg(i, "front") });
+  }
+}
+function drawFloor(){
+  // しきものに おちる お盆の 影
+  ctx.fillStyle = C.shadow;
+  ctx.beginPath();
+  for (let i = 0; i <= N_SEG; i += 2){
+    const o = OUT[i % N_SEG];
+    const p = proj(o.u*1.03 + tilt.u*40, GROUND_Y, o.v*1.03 + 10);
+    if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+  }
+  ctx.closePath(); ctx.fill();
+  drawGapOutside();
+  // ゆか
+  ctx.beginPath();
+  for (let i = 0; i <= N_SEG; i++){
+    const q = IN[i % N_SEG], p = trayP(q.u, 0, q.v);
+    if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+  }
+  ctx.closePath();
+  const cc = trayP(0, 0, 0);
+  const gr = ctx.createRadialGradient(cc.x, cc.y, 0, cc.x, cc.y, R*1.15*cc.s);
+  gr.addColorStop(0, C.floor); gr.addColorStop(.75, C.floor); gr.addColorStop(1, C.floorEdge);
+  ctx.fillStyle = gr; ctx.fill();
+  ctx.fillStyle = C.dot;
+  for (const d of DOTS){
+    const p = trayP(d.u, 0, d.v);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, d.s*p.s, d.s*p.s*SINP, 0, 0, 7); ctx.fill();
+  }
+}
+/* 門の すきま：ふちの かわりに 板（しきい）が つづく */
+function gateSillItems(items){
+  for (const gt of gates){
+    const c = gpt(gt, RIM_W, 0);
+    items.push({ d: trayP(c.u, 0, c.v).d + 2, draw: () => {
+      const n = 6;
+      for (let k = 0; k < n; k++){
+        const t0 = -GATE_HALF + 2*GATE_HALF*k/n, t1 = -GATE_HALF + 2*GATE_HALF*(k+1)/n;
+        const a = gpt(gt, -2, t0), b = gpt(gt, -2, t1), c2 = gpt(gt, RIM_W, t1), e = gpt(gt, RIM_W, t0);
+        quad(trayP(a.u, 0, a.v), trayP(b.u, 0, b.v), trayP(c2.u, 0, c2.v), trayP(e.u, 0, e.v), C.floorEdge);
+        quad(trayP(e.u, 0, e.v), trayP(c2.u, 0, c2.v), trayP(c2.u, -BASE_H, c2.v), trayP(e.u, -BASE_H, e.v), C.rimOut);
+      }
+    }});
+  }
+}
+/* 門（はしら＋とびら 2まい、アーチ）。子と 奥ゆきで ならべる */
+function gateItems(items){
+  gateSillItems(items);
+  for (const gt of gates){
+    for (const sv of [-1, 1]){
+      const p = gpt(gt, RIM_W/2, sv*GATE_HALF);
+      items.push({ d: trayP(p.u, RIM_H, p.v).d - 3, draw: () => drawPost(gt, sv) });
+    }
+    const c = gpt(gt, RIM_W/2, 0);
+    items.push({ d: trayP(c.u, GATE_H, c.v).d - 4, draw: () => drawArch(gt) });
+  }
+}
+function drawPost(gt, sv){
+  const h = gpt(gt, RIM_W/2, sv*GATE_HALF);
+  const b = trayP(h.u, -BASE_H, h.v), t = trayP(h.u, GATE_H*.78, h.v);
+  ctx.lineCap = "round";
+  ctx.strokeStyle = C.archL; ctx.lineWidth = 10*b.s + 2;
+  ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+  ctx.strokeStyle = C.arch; ctx.lineWidth = 10*b.s;
+  ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+  // とびら（はしらを じくに、外へ ひらく）
+  const ang = gt.open * 1.35;
+  const len = GATE_HALF - 4;
+  const e = { u: h.u + (-sv*gt.t.u*Math.cos(ang) + gt.n.u*Math.sin(ang))*len,
+              v: h.v + (-sv*gt.t.v*Math.cos(ang) + gt.n.v*Math.sin(ang))*len };
+  const p1 = trayP(h.u, 1, h.v), p2 = trayP(e.u, 1, e.v), p3 = trayP(e.u, RIM_H + 7, e.v), p4 = trayP(h.u, RIM_H + 7, h.v);
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.closePath();
+  ctx.fillStyle = C.door; ctx.fill();
+  ctx.strokeStyle = C.doorL; ctx.lineWidth = Math.max(1, 1.6*b.s); ctx.lineJoin = "round"; ctx.stroke();
+  const hc = trayP(h.u + (e.u - h.u)*.55, (RIM_H + 7)*.5, h.v + (e.v - h.v)*.55);
+  ctx.fillStyle = C.heart;
+  drawHeart(ctx, hc.x, hc.y, 6*hc.s);
+}
+function drawArch(gt){
+  const pts = [];
+  for (let i = 0; i <= 20; i++){
+    const a = Math.PI*(1 - i/20);
+    const q = gpt(gt, RIM_W/2, Math.cos(a)*GATE_HALF);
+    pts.push(trayP(q.u, GATE_H*.78 + Math.sin(a)*GATE_H*.30, q.v));
+  }
+  const s = pts[10].s;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const [c, w] of [[C.archL, 10*s + 2], [C.arch, 10*s]]){
+    ctx.strokeStyle = c; ctx.lineWidth = w;
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke();
+  }
+  for (let i = 2; i <= 18; i += 4){
+    const p = pts[i];
+    ctx.fillStyle = i % 8 === 2 ? "#ffffff" : "#fff3a8";
+    for (let k = 0; k < 5; k++){
+      const a = k/5*6.283;
+      ctx.beginPath(); ctx.arc(p.x + Math.cos(a)*3.2*s, p.y + Math.sin(a)*3.2*s, 2.6*s, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = "#ffcf5a"; ctx.beginPath(); ctx.arc(p.x, p.y, 2*s, 0, 7); ctx.fill();
+  }
+}
+
+function drawBallShadow(b){
+  const p = trayP(b.u, 0, b.v);
+  const k = 1 / (1 + b.h/260);                   // 高く とぶほど 影は 小さく うすく
+  const ps = b.pop < 1 ? popScale(b.pop) : 1;
+  ctx.globalAlpha = .22 * k;
+  ctx.fillStyle = "#6a5040";
+  const rx = b.r*.92*p.s*k*ps;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, rx*SINP, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function popScale(t){            // ぽんっ：0.55 → 1.12 → 1
+  const c1 = 1.9, c3 = c1 + 1, x = t - 1;
+  return .55 + .45*(1 + c3*x*x*x + c1*x*x);
+}
+function drawBall(b){
+  const p = trayP(b.u, b.h + b.r, b.v);
+  let sc = p.s;
+  if (b.pop < 1) sc *= popScale(b.pop);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(sc, sc);
+  ctx.rotate(b.lean + (b.spinT > 0 ? (1 - b.spinT/.45)*6.2832*(b.spinDir || 1) : 0));
+  const phase = b.phase + time*.6;
+  // とんで いる あいだは たてに すこし のびる（ふわっ）
+  const air = b.h > 1 ? clamp(b.vh/900, -.08, .1) : 0;
+  drawCreature(ctx, b.tier, b.r, phase, blinkAmt(b), b.sq + air, smileAmt(b), surpAmt(b), b.surpKind,
+               0, 0, 0, phase - b.roll*TIERS[b.tier].fluff*.5);
+  ctx.restore();
+}
+function runnerY(g, q){ return (g.stage <= 2) ? floorY(q.u, q.v) : g.hy; }
+function drawRunnerGroup(g){
+  const R0 = TIERS[LAST].r;
+  const pop = Math.min(1, g.age/.16);
+  const sc0 = RUN_SCALE * (.55 + .45*pop);
+  const Q = runnerPos(g);
+  // 光の 輪は ぜんぶ 先に（本体 設計判断3：うしろの 子の 光が 前の 子を 白く ぬらない）
+  for (const q of Q){
+    const hop = Math.abs(Math.sin(g.age*14 + g.ph + q.k*1.3)) * 11;
+    const p = proj(q.u, runnerY(g, q) + R0*sc0 + hop, q.v);
+    const rr = R0*sc0*p.s*1.7;
+    const gr = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr);
+    gr.addColorStop(0, "rgba(255,250,220,.75)"); gr.addColorStop(1, "rgba(255,250,220,0)");
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 7); ctx.fill();
+  }
+  Q.sort((a, b) => proj(a.u, 0, a.v).d < proj(b.u, 0, b.v).d ? 1 : -1);
+  for (const q of Q){
+    const hop = Math.abs(Math.sin(g.age*14 + g.ph + q.k*1.3)) * 11;
+    const y = runnerY(g, q);
+    const sp = proj(q.u, y, q.v);
+    ctx.globalAlpha = .18; ctx.fillStyle = "#6a5040";
+    ctx.beginPath(); ctx.ellipse(sp.x, sp.y, R0*sc0*.7*sp.s, R0*sc0*.7*sp.s*SINP, 0, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    const p = proj(q.u, y + R0*sc0 + hop, q.v);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.scale(sc0*p.s, sc0*p.s);
+    const dir = Math.abs(g.fu) > .3 ? Math.sign(g.fu) : 0;
+    ctx.rotate(dir * (.14 + Math.sin(g.age*14 + g.ph + q.k*1.3)*.12));
+    drawCreature(ctx, LAST, R0, g.age*3 + g.ph + q.k, 1, 0, 1, 0, 1);
+    ctx.restore();
+  }
+}
+function drawFx(f, pass){
+  const k = f.age / f.life;
+  if (f.t === "ring" && pass === 0){
+    const p = trayP(f.u, 0, f.v);
+    const rr = (f.r0 + (f.r1 - f.r0)*(1 - Math.pow(1-k, 2))) * p.s;
+    ctx.globalAlpha = (1 - k)*.7;
+    ctx.strokeStyle = f.c; ctx.lineWidth = 4*p.s*(1-k) + 1;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rr, rr*SINP, 0, 0, 7); ctx.stroke();
+    ctx.globalAlpha = 1;
+  } else if (f.t === "dust" && pass === 0){
+    const p = f.wy === null ? trayP(f.u, 2, f.v) : proj(f.u, f.wy + 2, f.v);
+    ctx.globalAlpha = (1 - k)*.5;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.arc(p.x, p.y, f.s*p.s*(.6 + k*.8), 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (f.t === "star" && pass === 1){
+    const p = trayP(f.u, f.h, f.v);
+    ctx.globalAlpha = k > .7 ? (1-k)/.3 : 1;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(f.rot);
+    ctx.fillStyle = f.c;
+    starG(ctx, 0, 0, f.s*p.s);
+    ctx.restore(); ctx.globalAlpha = 1;
+  } else if (f.t === "txt" && pass === 2){
+    const p = trayP(f.u, f.h + k*30, f.v);
+    const pop = Math.min(1, f.age/.15);
+    ctx.globalAlpha = k > .7 ? (1-k)/.3 : 1;
+    ctx.font = `bold ${Math.round(((f.size || 20)*p.s + 4)*(.7 + .3*pop))}px "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif`;
+    ctx.textAlign = "center"; ctx.lineJoin = "round";
+    const hw = ctx.measureText(f.s).width/2 + 8;
+    const x = clamp(p.x, hw, W - hw);                  // 画面の はしで 切れない ように
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.strokeText(f.s, x, p.y);
+    ctx.fillStyle = f.c || "#e0668a"; ctx.fillText(f.s, x, p.y);
+    ctx.globalAlpha = 1;
+  }
+}
+function drawPending(p){
+  // ふってくる 場所の 影（だんだん こく、小さく まとまる）
+  const q = trayP(p.u, 0, p.v);
+  const k = p.t / p.warn;
+  const rx = p.r*.95*q.s*(1.5 - .5*k);
+  ctx.globalAlpha = .08 + .14*k;
+  ctx.fillStyle = "#6a5040";
+  ctx.beginPath(); ctx.ellipse(q.x, q.y, rx, rx*SINP, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = .45*k;
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.ellipse(q.x, q.y, p.r*q.s, p.r*q.s*SINP, 0, 0, 7); ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+}
+
+function draw(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.drawImage(bg, 0, 0, W, H);
+  drawDeco();
+  drawFloor();
+  drawRimBack();
+  for (const p of pending) drawPending(p);
+  for (const f of fx) drawFx(f, 0);
+  for (const b of balls) drawBallShadow(b);
+  // 奥から 順に（子・てまえの ふち・門 を まとめて ならべる）
+  const items = [];
+  for (const b of balls) items.push({ d: trayP(b.u, b.r*.5, b.v).d, draw: () => drawBall(b) });
+  for (const g of runners) if (g.stage <= 2) items.push({ d: trayP(g.u, 0, g.v).d - 10, draw: () => drawRunnerGroup(g) });
+  for (const o of OBS) items.push({ d: trayP(o.u, OB_H*.3, o.v).d, draw: () => drawObstacle(o) });
+  if (ww) items.push({ d: trayP(ww.u, 0, ww.v).d - 5, draw: drawWW });
+  for (const o of outs) if (outAcross(o) <= RIM_W + 2) items.push({ d: trayP(o.u, o.r*.5, o.v).d, draw: () => drawOut(o) });
+  rimItems(items);
+  gateItems(items);
+  items.sort((a, b) => b.d - a.d);
+  for (const it of items) it.draw();
+  // とんで いる 子は ふちより 上に いる ので、高い 子だけ もう いちど 上に 重ねる
+  for (const b of balls) if (b.h > RIM_H + 6 && b.state !== "merge") drawBall(b);
+  // しきものへ おりた 見送りは いちばん 上（門は てまえ よこ に あるので、お盆の うしろには 行かない）
+  for (const g of runners) if (g.stage >= 3) drawRunnerGroup(g);
+  for (const f of fx) drawFx(f, 1);
+  for (const f of fx) drawFx(f, 2);
+  if (flashT > 0){
+    const a = flashSoft ? flashT/.18*.35 : Math.sin(clamp(1 - flashT/.55, 0, 1)*Math.PI);
+    ctx.globalAlpha = clamp(a, 0, 1); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  }
+}
+
+/* 「つぎ」の 子（小さな 画面。変わった ときと、まばたきの ときだけ 描きなおす） */
+const nextCv = document.getElementById("nextCv");
+const nctx = nextCv.getContext("2d");
+let nextTick = 0;
+const nextFace = { blink: 3, blinkT: 0 };
+function drawNext(dt){
+  nextTick -= dt;
+  nextFace.blink -= dt;
+  if (nextFace.blink <= 0){ nextFace.blinkT = .13; nextFace.blink = rnd(2.5, 6); nextDirty = true; }
+  if (nextFace.blinkT > 0){ nextFace.blinkT -= dt; nextDirty = true; }
+  const w = nextCv.clientWidth, h = nextCv.clientHeight;
+  if (!w) return;                                    // まだ 出て いない
+  if (nextCv.width !== Math.round(w*DPR)){ nextCv.width = Math.round(w*DPR); nextCv.height = Math.round(h*DPR); nextDirty = true; nextTick = 0; }
+  if (!nextDirty || nextTick > 0) return;
+  nextTick = .12; nextDirty = false;
+  nctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  nctx.clearRect(0, 0, w, h);
+  const ea = blinkAmt(nextFace);
+  nctx.save(); nctx.translate(h*.52, h*.54); drawCreature(nctx, nextQ[0], h*.36, time*.6, ea, 0, 0, 0, 1); nctx.restore();
+  nctx.save(); nctx.globalAlpha = .75; nctx.translate(h*1.28, h*.62); drawCreature(nctx, nextQ[1], h*.24, time*.6 + 1, 1, 0, 0, 0, 1); nctx.restore();
+}
+
+/* ---------------- ループ ---------------- */
+let last = 0, running = true;
+function loop(now){
+  if (!running) return;
+  const dt = Math.min(1/30, Math.max(0, (now - last)/1000 || 0));
+  last = now;
+  update(dt);
+  draw();
+  drawNext(dt);
+  requestAnimationFrame(loop);
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden){ running = false; }
+  else if (!running){ running = true; last = performance.now(); requestAnimationFrame(loop); }
+});
+
+/* ---------------- 画面の ボタン ---------------- */
+const levelBtn = document.getElementById("levelBtn");
+const soundBtn = document.getElementById("soundBtn");
+const startBox = document.getElementById("start");
+levelBtn.addEventListener("click", level);
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? "🔊" : "🔈";
+});
+document.getElementById("sceneBtn").addEventListener("click", () => changeScene());
+document.getElementById("startBtn").addEventListener("click", async () => {
+  beep(660, .06, "sine", .05);           // 音を 起こす（指で さわった ながれで）
+  await enableSensor();
+  startBox.classList.add("hidden");
+  document.getElementById("nextCard").classList.remove("hidden");
+  started = true;
+  for (let i = 0; i < 5; i++) setTimeout(() => queueSpawn(), 250 + i*380);   // さいしょの 5人
+  spawnT = .25 + 5*.38 + SPAWN_EVERY;
+  toast(TH.nm + " ・ " + SH.nm + "の お盆");
+});
+
+applyTheme(pick(THEMES));
+buildShape(pick(SHAPES));
+addEventListener("resize", resize);
+resize();
+requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
+
+/* 確かめ用（絵を 撮る 道具から さわる）。遊びには 関係ない */
+window.__m3d = {
+  add(tier, u, v, h){ const b = newBall(tier, u, v); b.age = 1; if (h) b.h = h; balls.push(b); return b; },
+  clear(){ balls = []; pending = []; merges = []; runners = []; fx = []; chainLive = null; outs = []; ww = null; },
+  ww(u, v){ return spawnWW(u, v); }, get wwObj(){ return ww; }, get outs(){ return outs; }, get obs(){ return OBS; }, get gap(){ return gap; },
+  obs0(list){ OBS = list.map(([u, v]) => ({ u, v, r:OB_R, ph:0 })); },
+  tilt(u, v, now){ testTilt = { u, v }; if (now){ tilt.u = u; tilt.v = v; } },
+  free(){ testTilt = null; },
+  get balls(){ return balls; }, get runners(){ return runners; }, get fx(){ return fx; },
+  step(n, dt){ for (let i = 0; i < n; i++){ update(dt || 1/60); drawNext(dt || 1/60); } draw(); },
+  scene(ti, si, ga){ applyTheme(THEMES[ti]); buildShape(SHAPES[si], ga); },
+  swap(ti, si){ changeScene(ti, si); },
+  wall(u, v){ return wallInfo(u, v); },
+  shapes: SHAPES.map(s => s.nm), themes: THEMES.map(t => t.nm),
+  start(){ document.getElementById("startBtn").click(); },
+  stop(){ running = false; },
+  quiet(){ started = false; },
+};
+
+})();
+</script>
+</body>
+</html>
