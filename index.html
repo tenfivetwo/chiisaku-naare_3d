@@ -33,6 +33,10 @@
   #start h1{margin:0 0 6px;font-size:30px;color:#e0668a;text-shadow:0 2px 0 #fff;}
   #start p{margin:4px 16px;font-size:15px;line-height:1.6;}
   #start .warn{font-size:13px;color:#7a6a9a;}
+  #baseRow{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;justify-content:center;}
+  #baseRow button{font:inherit;font-size:13px;font-weight:bold;color:#7a5a48;background:rgba(255,255,255,.8);
+    border:2px solid #f3c7d4;border-radius:16px;padding:6px 10px;min-height:36px;}
+  #baseRow button.on{background:#f08aa8;color:#fff;border-color:#f08aa8;}
   #start .small{font-size:12px;opacity:.8;margin-top:14px;}
   #startBtn{margin-top:22px;font:inherit;font-weight:bold;font-size:20px;color:#fff;background:#f08aa8;
     border:none;border-radius:30px;padding:14px 44px;box-shadow:0 4px 0 #d86c8d;}
@@ -53,7 +57,9 @@
   <p>生まれた子は近くのなかまを呼ぶよ。<br>つづけてくっつくと「連鎖」！</p>
   <p class="warn">つむじかぜにさわると、もとの2人にもどっちゃう。<br>はたの立っている切れ目からは、小さい子が出ていっちゃうよ。</p>
   <button id="startBtn">はじめる</button>
-  <p class="small">スマホは持ちやすい角度で押してね（その角度が「まっすぐ」になります）</p>
+  <p class="small">スマホで遊ぶときの「水平」（前後の角度）</p>
+  <div id="baseRow"><button data-m="auto">いまの持ち方</button><button data-m="30">30度</button><button data-m="45">45度</button><button data-m="0">平ら</button></div>
+  <p class="small">「いまの持ち方」は、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
 </div>
 <script>
 (() => {
@@ -1766,7 +1772,7 @@ const VH_MAX   = 560;
 const E_BALL   = 0.30;   // 子どうしの はねかえり
 const E_RIM    = 0.45;   // ふち（見えない壁）の はねかえり
 const E_FLOOR  = 0.38;   // ゆかの はねかえり
-const MERGE_PAD = 3.5;
+const MERGE_PAD = 12;    // この きょりまで 近づけば くっつく（第4版：3.5 → 12。ぴったり ふれなくても よい）
 const CAP      = 10;     // お盆に いられる 子の 上限
 const SPAWN_EVERY = 2.6; // 何秒ごとに 1人 ふってくるか
 const CHAIN_WINDOW = 1.3;// 生まれて この 秒数の うちに また くっつくと 連鎖
@@ -1777,6 +1783,7 @@ const RUN_SCALE = 1.32;  // 見送りの ときの 大きさ
 const SCENE_EVERY = 4;   // 見送り 何回ごとに けしきと お盆が かわるか
 const OB_N     = 3;      // じゃまな 柱の 数
 const OB_R     = 21;     // 柱の 太さ（半径）
+const OB_PASS  = 2*64 + 8; // 柱の すきまは らいおん（半径64）が 通れる はば いじょう。せまい 道は 作らない
 const OB_H     = 40;     // 柱の 高さ
 const GAP_ON   = true;   // ふちの 切れ目を つかうか（false で 切れ目なし）
 const GAP_HALF = 33;     // ふちの 切れ目の はばの 半分。これより 小さい子（いぬ・ねこ・ひよこ）だけ 出られる
@@ -1929,17 +1936,40 @@ function buildShape(sh, gapAng){
   placeObstacles();
   if (W) fitView();
 }
-/* じゃまな 柱：ふちから はなし、たがいに はなし、門と 切れ目の 口を ふさがない */
+/* じゃまな 柱（第4版で きめ方を かえた・作者の 注文12）
+   すきまは「0」か「らいおんが 通れる はば（OB_PASS）いじょう」の どちらか だけ。
+   ・ふちに くっつけた 柱（ふちの 出っぱり）… ふちとの あいだに すきまは ない
+   ・まんなかの ほうの 柱 …………………… ふちまで OB_PASS いじょう あける
+   柱どうしも OB_PASS いじょう はなす。「大きい子だけ 通れない 道」で 詰まる 絵を 作らない。 */
+function obstacleOK(o, list){
+  const w = wallInfo(o.u, o.v);
+  if (o.onRim){
+    // ふちに 半分 うまって いる。むかいがわ（はなれた ふちの 点）とは OB_PASS いじょう
+    // むかいがわ ＝ 柱から 見て 中むきの 向きから 60度 いないに ある ふちの 点
+    for (const q of IN){
+      const x = q.u - o.u, y = q.v - o.v, d = Math.hypot(x, y) || 1;
+      if ((x*w.nu + y*w.nv)/d < .5) continue;
+      if (d < o.r + OB_PASS) return false;
+    }
+  } else if (w.dist - o.r < OB_PASS) return false;
+  for (const p of list) if (Math.hypot(p.u - o.u, p.v - o.v) - p.r - o.r < OB_PASS) return false;
+  for (const gt of gates.concat([gap])) if (Math.hypot(gt.P.u - o.u, gt.P.v - o.v) < 120) return false;
+  return true;
+}
 function placeObstacles(){
   OBS = [];
-  for (let k = 0; k < 400 && OBS.length < OB_N; k++){
-    const u = rnd(-R*1.1, R*1.1), v = rnd(-R*1.1, R*1.1);
-    if (wallInfo(u, v).dist < 62) continue;
-    if (Math.hypot(u, v) < 40) continue;                         // まんなかは あけて おく
-    let ok = true;
-    for (const o of OBS) if (Math.hypot(o.u - u, o.v - v) < 130) ok = false;
-    for (const gt of gates.concat([gap])) if (Math.hypot(gt.P.u - u, gt.P.v - v) < 110) ok = false;
-    if (ok) OBS.push({ u, v, r:OB_R, ph: rnd(0, 6) });
+  // まんなかに 1つ（お盆が ドーナツの ように なる）
+  for (let k = 0; k < 200 && OBS.length < 1; k++){
+    const o = { u: rnd(-12, 12), v: rnd(-12, 12), r:OB_R, ph: rnd(0, 6), onRim:false };
+    if (obstacleOK(o, OBS)) OBS.push(o);
+  }
+  // のこりは ふちの 出っぱり
+  for (let k = 0; k < 600 && OBS.length < OB_N; k++){
+    const a = rnd(0, 6.2832), r = rhoAt(a);
+    const d = r - OB_R*.55;                          // 半分 ちょっと ふちに うめる → すきま なし
+    const o = { u: Math.cos(a)*d, v: Math.sin(a)*d, r:OB_R, ph: rnd(0, 6), onRim:true };
+    if (wallInfo(o.u, o.v).dist > OB_R*.8) continue;  // くぼんだ ところは さける
+    if (obstacleOK(o, OBS)) OBS.push(o);
   }
   for (const b of balls) for (const o of OBS){      // かさなった 子は よける
     const d = Math.hypot(b.u - o.u, b.v - o.v);
@@ -2880,7 +2910,16 @@ function drawObstacle(o){
 /* ---------------- 入力：傾ける ---------------- */
 const keys = {};
 let drag = null;
-let sensor = { on:false, has:false, x:0, y:0, x0:null, y0:null };
+let sensor = { on:false, has:false, x:0, y:0, x0:0, y0:null, rx:null, ry:null };
+/* 前後の 基準（作者の 注文11）。手で 持った 角度を「お盆が 水平」と みなす。左右は いつも 0度。
+   "auto"＝はじめる／まっすぐ を おした ときの 前後の 角度。30・45・0 は 決めうち。 */
+let baseMode = "auto";
+try { const m = localStorage.getItem("mamemaru3d-base"); if (["auto","0","30","45"].includes(m)) baseMode = m; } catch(e){}
+function applyBase(){
+  sensor.x0 = 0;
+  if (baseMode === "auto"){ if (sensor.has) sensor.y0 = sensor.y; else sensor.y0 = null; }
+  else sensor.y0 = +baseMode;
+}
 const SENS_DEG = 20;     // スマホを 何度 傾けたら 上限か
 
 addEventListener("keydown", e => {
@@ -2909,10 +2948,14 @@ function onOrient(e){
   else if (a === 270){ x = -e.beta; y = e.gamma; }
   else if (a === 180){ x = -e.gamma; y = -e.beta; }
   else { x = e.gamma; y = e.beta; }
-  sensor.x = x; sensor.y = y; sensor.has = true;
-  if (sensor.x0 === null){ sensor.x0 = x; sensor.y0 = y; }   // さいしょの 持ちかたを「まっすぐ」に
+  // 手の ふるえで ぷるぷる しない ように、すこし なめらかに
+  if (sensor.rx === null){ sensor.rx = x; sensor.ry = y; }
+  sensor.rx += (x - sensor.rx)*.25; sensor.ry += (y - sensor.ry)*.25;
+  sensor.x = sensor.rx; sensor.y = sensor.ry; sensor.has = true;
+  if (sensor.y0 === null) applyBase();   // さいしょの 持ちかたを「まっすぐ」に（前後だけ）
 }
-function level(){ sensor.x0 = sensor.x; sensor.y0 = sensor.y; }
+function level(){ baseMode = "auto"; saveBase(); applyBase(); }   // いまの 前後の 角度を 水平に
+function saveBase(){ try { localStorage.setItem("mamemaru3d-base", baseMode); } catch(e){} paintBase(); }
 async function enableSensor(){
   try {
     if (typeof DeviceOrientationEvent !== "undefined" &&
@@ -3331,6 +3374,14 @@ soundBtn.addEventListener("click", () => {
   soundBtn.textContent = soundOn ? "🔊" : "🔈";
 });
 document.getElementById("sceneBtn").addEventListener("click", () => changeScene());
+/* 持ち方の 基準を えらぶ（はじめの 画面） */
+function paintBase(){
+  document.querySelectorAll("#baseRow button").forEach(b => b.classList.toggle("on", b.dataset.m === baseMode));
+}
+document.querySelectorAll("#baseRow button").forEach(b => b.addEventListener("click", () => {
+  baseMode = b.dataset.m; saveBase(); applyBase();
+}));
+paintBase();
 document.getElementById("startBtn").addEventListener("click", async () => {
   beep(660, .06, "sine", .05);           // 音を 起こす（指で さわった ながれで）
   await enableSensor();
@@ -3365,6 +3416,7 @@ window.__m3d = {
   start(){ document.getElementById("startBtn").click(); },
   stop(){ running = false; },
   quiet(){ started = false; },
+  get tiltT(){ return { u: tiltT.u, v: tiltT.v }; }, get base(){ return [baseMode, sensor.x0, sensor.y0]; },
 };
 
 })();
