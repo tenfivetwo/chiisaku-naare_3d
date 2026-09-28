@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>まめまる3D（おためし）</title>
+<title>ころころまめまる</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#cdeab4;
     font-family:"Hiragino Maru Gothic ProN","Yu Gothic","Meiryo",sans-serif;
@@ -146,10 +146,10 @@
     <div class="tm" style="display:none"><small id="timeL">のこり</small><span id="timeV">3:00</span></div>
     <div class="fv" title="まめまるシャワーまで"><i id="feverBar"></i></div></div><div class="sp"></div>
   <button id="quitBtn" style="display:none">やめる</button></div>
-<div id="tools" style="display:none"><button id="levelBtn" style="display:none">まっすぐ</button><button id="sceneBtn" title="けしきと お盆を かえる">🎨</button><button id="soundBtn">🔊</button></div>
+<div id="tools" style="display:none"><button id="levelBtn" style="display:none">まっすぐ</button><button id="sceneBtn" title="景色とお盆を変える">🎨</button><button id="soundBtn">🔊</button></div>
 <div id="nextCard" class="hidden"><span>つぎ</span><canvas id="nextCv"></canvas></div>
 <div id="toast"></div>
-<div id="timebar" class="hidden"><span class="lb" id="tbLbl">のこり</span><span class="nm" id="tbNum">3:00</span>
+<div id="timebar" class="hidden"><span class="lb" id="tbLbl">残り</span><span class="nm" id="tbNum">3:00</span>
   <div class="trk"><div class="fil" id="tbFill"></div><canvas id="tbRun"></canvas></div></div>
 <div id="feverBanner">まめまるシャワー！</div>
 <div id="result"><div class="card">
@@ -162,27 +162,23 @@
 </div></div>
 <div id="hint" style="display:none">スマホを傾けて転がそう ／ パソコンはドラッグか矢印キー</div>
 <div id="start">
-  <h1>まめまる3D</h1>
-  <p>お盆を傾けて、おなじ子どうしを<br>くっつけよう。くっつくと小さくなるよ。</p>
-  <p>いちばん小さい子が2匹そろうと、<br>門からなかよく出かけていくよ。</p>
-  <p>生まれた子は近くのなかまを呼ぶよ。<br>つづけてくっつくと「連鎖」！</p>
-  <p class="warn">まめまるは どんどんふってくるよ。<br>お盆がいっぱいになったら おしまい！</p>
-  <p class="warn">つむじかぜにさわると、もとの2人にもどっちゃう。<br>はたの立っている切れ目からは、小さい子が出ていっちゃうよ。</p>
-  <div id="lineWrap"><div id="lineup"></div><button id="pickBtn">まめまるを えらぶ</button></div>
-  <p class="small">あそぶ時間</p>
-  <div id="limitRow" class="chips"><button data-l="180">3分</button><button data-l="300">5分</button><button data-l="600">10分</button><button data-l="0">無制限</button></div>
+  <h1>ころころまめまる</h1>
+  <p>お盆を傾けて、同じ子どうしをくっつけよう。<br>くっつくと小さくなるよ。<br>最後は2匹でなかよく出かけていくよ。</p>
+  <p class="warn">つむじかぜにさわると元にもどっちゃう。</p>
+  <div id="lineWrap"><div id="lineup"></div><button id="pickBtn">まめまるを選ぶ</button></div>
+  <p class="small">遊ぶ時間</p>
+  <div id="limitRow" class="chips"><button data-l="300">5分</button><button data-l="600">10分</button><button data-l="0">無制限</button></div>
   <p class="best" id="homeBest"></p>
   <button id="startBtn">はじめる</button>
-  <p class="small">スマホで遊ぶときの「水平」（前後の角度）</p>
-  <div id="baseRow" class="chips"><button data-m="auto">いまの持ち方</button><button data-m="30">30度</button><button data-m="45">45度</button><button data-m="0">平ら</button></div>
-  <p class="small">「いまの持ち方」は、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
+  <div id="baseRow" class="chips"><button data-m="auto">今の持ち方</button><button data-m="30">30度</button><button data-m="45">45度</button><button data-m="0">平ら</button></div>
+  <p class="small">スマホは「今の持ち方」なら、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
 </div>
 <div id="charSel" class="hidden"><div class="box">
-  <div class="ttl">まめまるを 6つ えらんでね</div>
-  <div class="sub">先に えらんだ子ほど 大きくなります</div>
+  <div class="ttl">まめまるを6つ選んでね</div>
+  <div class="sub">先に選んだ子ほど大きくなります</div>
   <div id="csOrder"></div>
   <div id="csGrid"></div>
-  <div class="foot"><span id="csCount"></span><button id="csDef">もとの6体</button></div>
+  <div class="foot"><span id="csCount"></span><button id="csDef">最初の6体</button></div>
   <div class="btns"><button id="csCancel">もどる</button><button id="csOk">決定</button></div>
 </div></div>
 <script>
@@ -1902,10 +1898,10 @@ const E_RIM    = 0.45;   // ふち（見えない壁）の はねかえり
 const E_FLOOR  = 0.38;   // ゆかの はねかえり
 const MERGE_PAD = 12;    // この きょりまで 近づけば くっつく（第4版：3.5 → 12。ぴったり ふれなくても よい）
 const SPAWN_EVERY = 2.6; // 何秒ごとに 1人 ふってくるか（はじめ）
-const SPAWN_MIN  = 0.6;  // だんだん はやく なって、ここまで（第8版）
-const SPAWN_RAMP = 0.009;// 1秒ごとに 何秒 はやく なるか（2.6秒 → 0.6秒 まで 約3分40秒）
-const OVER_H    = 40;    // 子の 下が ゆかから この 高さより 上に のった まま ＝ あふれかけ
-const OVER_WAIT = 1.0;   // その まま この 秒数 たったら カウントダウン（ぴょんと はねた だけ では 数えない）
+const SPAWN_MIN  = 1.0;  // だんだん はやく なって、ここまで（第8版）
+const SPAWN_RAMP = 0.010;// 1秒ごとに 何秒 はやく なるか（2.6秒 → 0.6秒 まで 約3分40秒）
+const OVER_H    = 16;    // 子の 下が ゆかから この 高さより 上に のった まま ＝ あふれかけ
+const OVER_WAIT = 0.4;   // その まま この 秒数 たったら カウントダウン（ぴょんと はねた だけ では 数えない）
 const OVER_SEC  = 3;     // カウントダウン（本体と おなじ 3秒・子ごと）
 const FULL_WARN = 0.40;  // お盆の 上の 子の 広さが お盆の この わりあいを こえると ふちが 赤く なる
 const FULL      = 0.50;  // これを こえた まま OVER_SEC 秒で あふれて おしまい
@@ -1914,13 +1910,17 @@ const MAGNET_R = 90;     // 生まれた 子が なかまを 引きよせる 範
 const MAGNET_A = 500;  // その 強さ（第8版 1250 → 500：何も しなくても 勝手に 連鎖して 点が 入って いた）
 const RUN_SP   = 58;     // ならんで 走る 2匹の 間かく（見かけの 直径と おなじ くらい）
 const RUN_SCALE = 1.32;  // 見送りの ときの 大きさ
+const SHRINK_RATE = 0.0035; // お盆が 1秒ごとに ちぢむ わりあい（第9版。1.0 → 0.55 まで 約2分10秒）
+const SHRINK_MIN  = 0.55;   // いちばん 小さく なって ここまで（半径の わりあい）
+const SHRINK_BACK = 0.012;  // 見送り 1回で もどる ぶん（作者：見送りで 少し もどる）
+const SHRINK_CLEAR = 0.03;  // 全消しで もどる ぶん
 const SCENE_EVERY = 4;   // 見送り 何回ごとに けしきと お盆が かわるか
 const FEVER_EVERY = 45;  // 何秒ごとに フィーバーが 来るか
 const FEVER_N    = 8;    // フィーバーで ふってくる 数
 const FEVER_GAP  = 0.8;  // フィーバーの あいだ 何秒ごとに 1人
 const CHAIN_MIN  = 3;    // 連鎖の 点は 3連鎖から（第6版：本体は 4。3Dは 連鎖が 短く なりがち なので 作者の 判断で 3に）
 const SPARKLE_RATE = 1/28; // ひよこが にじいろで 生まれる かくりつ（本体と おなじ）
-const LIMITS = [180, 300, 600, 0];   // 時間せいげん（0＝無制限）
+const LIMITS = [300, 600, 0];   // 時間せいげん（0＝無制限）。第9版：3分は 短すぎる ので なくした
 const OB_N     = 3;      // じゃまな 柱の 数
 const OB_R     = 21;     // 柱の 太さ（半径）
 const OB_PASS  = 2*64 + 8; // 柱の すきまは らいおん（半径64）が 通れる はば いじょう。せまい 道は 作らない
@@ -1951,8 +1951,10 @@ function resize(){
 }
 /* お盆を 画面の よこはば いっぱいに（形ごとに はかる） */
 function fitView(){
-  let ex = R + RIM_W, ev = R + RIM_W;
-  for (const o of OUT){ ex = Math.max(ex, Math.abs(o.u)); ev = Math.max(ev, Math.abs(o.v)); }
+  let ex = (R + RIM_W)*.5, ev = (R + RIM_W)*.5;
+  // カメラは お盆が ちぢむのに「半分くらい」ついて いく（ちぢむ ようすは 見えるが、小さく なりすぎない）
+  const vs = Math.sqrt(SCALE); viewScale = SCALE;
+  for (const o of OUT){ ex = Math.max(ex, Math.abs(o.u)/SCALE*vs); ev = Math.max(ev, Math.abs(o.v)/SCALE*vs); }
   ex += 6;
   const k = Math.min(0.985*W / (2*ex), 0.84*H / (2*ev*SINP + 150));
   F = CAM_D * k;
@@ -2019,7 +2021,8 @@ const N_SEG = 144;
 let SH = SHAPES[0], SHK = R;         // いまの 形と、面積を そろえる 倍率
 let IN = [], OUT = [], NRM = [], SEG_GATE = [], SEG_GAP = [], SEG_OPEN = [], DOTS = [], OBS = [];
 const gap = { ang: -Math.PI/2 };   // ふちの 切れ目
-function rhoAt(a){ return SH.rho(a) * SHK; }
+let SCALE = 1;            // お盆の いまの 大きさ（第9版：ふちが せまる。見送りで すこし もどる）
+function rhoAt(a){ return SH.rho(a) * SHK * SCALE; }
 function buildShape(sh, gapAng){
   SH = sh;
   // 面積を はかって 倍率を きめる
@@ -2027,6 +2030,14 @@ function buildShape(sh, gapAng){
   const M = 720;
   for (let i = 0; i < M; i++){ const r = sh.rho(i/M*6.2832); A += .5*r*r*(6.2832/M); }
   SHK = Math.sqrt(Math.PI*R*R / A);
+  // 切れ目の 場所（おくがわの どこか。ハートは まんなかが くぼみ なので よける）
+  gap.ang = (gapAng !== undefined) ? gapAng : pick(sh.nm === "ハート" ? [-.75, -2.39] : [-1.5708, -.75, -2.39]);
+  buildGeom();
+  placeObstacles();
+  if (W) fitView();
+}
+/* いまの SCALE で ふち・門・切れ目・みずたまを 作りなおす（ちぢむ たびに よぶ） */
+function buildGeom(){
   IN = []; OUT = []; NRM = [];
   for (let i = 0; i < N_SEG; i++){
     const a = i/N_SEG*6.2832, r = rhoAt(a);
@@ -2042,8 +2053,6 @@ function buildShape(sh, gapAng){
     NRM.push({ u:nu, v:nv });
     OUT.push({ u:p1.u + nu*RIM_W, v:p1.v + nv*RIM_W });
   }
-  // 切れ目の 場所（おくがわの どこか。ハートは まんなかが くぼみ なので よける）
-  gap.ang = (gapAng !== undefined) ? gapAng : pick(sh.nm === "ハート" ? [-.75, -2.39] : [-1.5708, -.75, -2.39]);
   // 門と 切れ目
   for (const gt of gates.concat([gap])){
     const a = gt.ang, r = rhoAt(a);
@@ -2073,8 +2082,6 @@ function buildShape(sh, gapAng){
   for (let v = -R*1.3; v <= R*1.3; v += 38, row++)
     for (let u = -R*1.4 + (row % 2 ? 19 : 0); u <= R*1.4; u += 38)
       if (wallInfo(u, v).dist > 12) DOTS.push({ u, v, s:5.5 });
-  placeObstacles();
-  if (W) fitView();
 }
 /* じゃまな 柱（第4版で きめ方を かえた・作者の 注文12）
    すきまは「0」か「らいおんが 通れる はば（OB_PASS）いじょう」の どちらか だけ。
@@ -2109,6 +2116,40 @@ function obstacleOK(o, list){
   for (const gt of gates.concat([gap])) if (Math.hypot(gt.P.u - o.u, gt.P.v - o.v) < 120) return false;
   return true;
 }
+/* お盆が ちぢむ（第9版）。柱も いっしょに 中へ よる。
+   すきまが らいおんの 通れない はばに なった 柱は、ゆかに しずんで 消える（注文12 を まもる）。 */
+let geomScale = 1, viewScale = 1;
+function applyScale(){
+  geomScale = SCALE;
+  buildGeom();
+  if (Math.abs(SCALE - viewScale) > .02 && W) fitView();
+  for (const o of OBS){ o.u = o.bu*SCALE; o.v = o.bv*SCALE; }
+  for (let i = OBS.length - 1; i >= 0; i--){
+    const o = OBS[i];
+    let bad = false;
+    if (o.onRim){
+      for (const q of IN){
+        const d = Math.hypot(q.u - o.u, q.v - o.v);
+        if (d < o.r + OB_PASS && wallDistExact((q.u + o.u)/2, (q.v + o.v)/2) > 26){ bad = true; break; }
+      }
+    } else if (wallDistExact(o.u, o.v) - o.r < OB_PASS) bad = true;
+    for (const p of OBS) if (p !== o && Math.hypot(p.u - o.u, p.v - o.v) - p.r - o.r < OB_PASS) bad = true;
+    if (bad){
+      OBS.splice(i, 1);
+      dust(o.u, o.v, o.r, 8);
+      beep(330, .15, "sine", .04, .6);
+    }
+  }
+}
+function stepShrink(dt){
+  if (gameState !== "play") return;
+  SCALE = Math.max(SHRINK_MIN, SCALE - SHRINK_RATE*dt);
+  if (Math.abs(SCALE - geomScale) > .003) applyScale();
+}
+function growBack(k){
+  SCALE = Math.min(1, SCALE + k);
+  applyScale();
+}
 function placeObstacles(){
   OBS = [];
   // まんなかに 1つ（お盆が ドーナツの ように なる）
@@ -2134,6 +2175,7 @@ function placeObstacles(){
     if ((p1.u - p0.u)*(p2.v - p1.v) - (p1.v - p0.v)*(p2.u - p1.u) < 0) continue;
     if (obstacleOK(o, OBS)) OBS.push(o);
   }
+  for (const o of OBS){ o.bu = o.u/SCALE; o.bv = o.v/SCALE; }   // ちぢむ ときの もとの いち
   for (const b of balls) for (const o of OBS){      // かさなった 子は よける
     const d = Math.hypot(b.u - o.u, b.v - o.v);
     if (d < b.r + o.r){ const k2 = (b.r + o.r + 1)/(d || 1); b.u = o.u + (b.u - o.u)*k2; b.v = o.v + (b.v - o.v)*k2; }
@@ -2297,7 +2339,7 @@ function doSwap(){
   const { th, sh } = sceneSwap;
   applyTheme(th); buildShape(sh); outs = [];
   for (const b of balls){ b.vh = Math.max(b.vh, 160); b.h = Math.max(b.h, 1); makeShock(b, rnd(0, .1), .4, 1); }
-  toast(th.nm + " ・ " + sh.nm + "の お盆");
+  toast(th.nm + "・" + sh.nm + "のお盆");
   beep(880, .08, "triangle", .06); setTimeout(() => beep(1175, .12, "triangle", .06), 70);
 }
 
@@ -2315,7 +2357,7 @@ let chainLive = null; // いま つづいて いる 連鎖
    はじめ［らいおん2・うし3・こあら3・いぬ3・ねこ2］→ BIG_T 秒で［8・6・3・1.5・0.5］ */
 const BIG_T = 180;
 function pickDrop(){
-  const k = (typeof playT === "number") ? Math.min(1, playT / BIG_T) : 0;
+  const k = 0;   // 第9版：大きい子を ふやすのは やめた（おなじ子が となり あいやすく なり、かえって くっつきやすかった）
   const w = [2 + 6*k, 3 + 3*k, 3, 3 - 1.5*k, 2 - 1.5*k];
   let x = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < w.length; i++){ x -= w[i]; if (x < 0) return i; }
@@ -2755,6 +2797,7 @@ function startRunners(mu, mv){
   }
   sends++;
   addScore("pop", 3);                                    // 見送り 1組＝3点（本体と おなじ）
+  if (gameState === "play") growBack(SHRINK_BACK);       // 見送りで お盆が すこし ひろがる
   fx.push({ t:"txt", u:mu, v:mv, h: 70, s:"+3", life:.9, age:0, c:"#d9822b", size:20 });
   if (sends % SCENE_EVERY === 0) setTimeout(() => changeScene(), 2200);   // 走りおわってから
 }
@@ -3580,7 +3623,7 @@ function drawFullCount(){
 }
 function draw(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const warnSave = warnColors();
+  const warnSave = null;   // 第9版：ふちを 赤くする 合図は やめた（あふれの 線が 見えない ため）
   ctx.drawImage(bg, 0, 0, W, H);
   drawDeco();
   drawFloor();
@@ -3605,7 +3648,7 @@ function draw(){
   for (const g of runners) if (g.stage >= 3) drawRunnerGroup(g);
   if (warnSave) Object.assign(C, warnSave);
   for (const b of balls) if (b._om) drawOverMark(b, b._om);     // あふれかけの 3・2・1 は いちばん 上
-  drawFullCount();
+
   for (const f of fx) drawFx(f, 1);
   for (const f of fx) drawFx(f, 2);
   if (flashT > 0){
@@ -3667,7 +3710,7 @@ document.getElementById("sceneBtn").addEventListener("click", () => changeScene(
    点数は 本体と おなじ：見送り 1組3点 ＋ 連鎖（4連鎖から）＋ 全消し
    ============================================================ */
 let gameState = "home";
-let limit = 180;
+let limit = 300;
 try { const r = localStorage.getItem("mamemaru3d-limit"); if (r !== null && LIMITS.includes(+r)) limit = +r; } catch(e){}
 let playT = 0, popScore = 0, chainScore = 0, clearScore = 0, clears = 0;
 let fever = null, nextFever = FEVER_EVERY, lastTick = -1, endT = 0;
@@ -3708,6 +3751,7 @@ function clearAll(x, y){
     const p = Math.ceil(n/3);
     addScore("clear", p);
     clears++;
+    if (gameState === "play") growBack(SHRINK_CLEAR);
     fx.push({ t:"txt", u:x, v:y, h:175, s:"+" + p + "点", life:1.8, age:0, c:"#b35c8a", size:22 });
   }
   for (const b of list){
@@ -3743,6 +3787,7 @@ function stepFever(dt){
 
 function stepGame(dt){
   if (quitArm > 0){ quitArm -= dt; if (quitArm <= 0) disarmQuit(); }
+  stepShrink(dt);
   stepOver(dt);
   if (gameState === "play"){
     playT += dt;
@@ -3766,7 +3811,7 @@ function paintHUD(){
   const tv = document.getElementById("timeV");
   if (limit){ setText(tv, fmt(limit - playT)); tv.classList.toggle("hurry", gameState === "play" && limit - playT <= 10); }
   else setText(tv, fmt(playT));
-  setText(document.getElementById("timeL"), limit ? "のこり" : "けいか");
+  setText(document.getElementById("timeL"), limit ? "残り" : "経過");
   const fb = document.getElementById("feverBar");
   const k = fever ? 1 : clamp(1 - (nextFever - playT)/FEVER_EVERY, 0, 1);
   fb.style.width = (k*100).toFixed(1) + "%";
@@ -3789,7 +3834,7 @@ function paintTimeBar(){
   if (gameState === "home"){ return; }
   const left = limit ? Math.max(0, limit - playT) : playT;
   setText(tbNum, fmt(left));
-  setText(tbLbl, limit ? "のこり" : "けいか");
+  setText(tbLbl, limit ? "残り" : "経過");
   tbBox.classList.toggle("free", !limit);
   const hurry = limit && left <= 10 && gameState === "play";
   tbNum.classList.toggle("hurry", !!hurry);
@@ -3849,22 +3894,30 @@ function fillRatio(){
   for (const b of balls) if (b.state === "ok" || b.state === "merge") a += b.r*b.r;
   return a / (R*R);                                  // どの 形も 面積は πR² に そろえて ある
 }
+/* ほかの 子の 上に のって いるか：ゆかから 浮いて いて、下に ふれて いる 子が いる（とんで いる だけ では ない） */
+function onTop(b){
+  if (b.h < OVER_H || Math.abs(b.vh) > 220) return false;
+  const yb = b.h + b.r;
+  for (const o of balls){
+    if (o === b || o.state !== "ok") continue;
+    const yo = o.h + o.r;
+    if (yo >= yb) continue;
+    const d = Math.hypot(b.u - o.u, b.v - o.v, yb - yo);
+    if (d < b.r + o.r + 3) return true;
+  }
+  return false;
+}
 function stepOver(dt){
   fillNow += (fillRatio() - fillNow) * Math.min(1, dt*4);   // ちらつかない ように すこし なめらかに
   if (gameState !== "play") return;
   let worst = 99;
-  // ① お盆が いっぱい（子の 広さ）
-  if (fillNow >= FULL) fullT += dt; else fullT = Math.max(0, fullT - dt*2);
-  if (fullT > 0){
-    const left = OVER_SEC - fullT;
-    worst = Math.min(worst, left);
-    if (left <= 0){ endGame("over"); return; }
-  }
-  // ② ほかの 子の 上に のった まま（めったに ない）
+  // 第9版：あふれ ＝ **ほかの 子の 上に のった まま**（作者：「こえちゃった」の 線が 分からない。のった 状態で よい）。
+  // 上に のって いる 子の 頭の 上に 3・2・1。すべり おりれば（傾けて 場所を あければ）カウントは 消える。
+  // （第8版の「お盆の 広さの 5わり」は 目で 見えない 線 だったので やめた）
   for (const b of balls){
     if (b.state !== "ok"){ b.overT = 0; continue; }
-    if (b.h > OVER_H) b.overT = (b.overT || 0) + dt;
-    else if (b.h < OVER_H*.7) b.overT = Math.max(0, (b.overT || 0) - dt*3);
+    if (onTop(b)) b.overT = (b.overT || 0) + dt;
+    else b.overT = Math.max(0, (b.overT || 0) - dt*4);
     if (b.overT > OVER_WAIT){
       const left = OVER_SEC - (b.overT - OVER_WAIT);
       worst = Math.min(worst, left);
@@ -3887,7 +3940,7 @@ function showResult(){
   document.getElementById("resPop").textContent = popScore + "点（" + sends + "組）";
   document.getElementById("resChain").textContent = chainScore + "点";
   document.getElementById("resClear").textContent = clearScore + "点（" + clears + "回）";
-  document.getElementById("resBest").textContent = isNew ? "さいこう記録！ " + best + "点" : "さいこう " + best + "点";
+  document.getElementById("resBest").textContent = isNew ? "最高記録！ " + best + "点" : "最高 " + best + "点";
   document.getElementById("resBest").classList.toggle("new", isNew);
   document.getElementById("result").classList.add("show");
 }
@@ -3896,6 +3949,7 @@ function resetGame(){
   chainLive = null; sends = 0; playT = 0; popScore = 0; chainScore = 0; clearScore = 0; clears = 0;
   fever = null; nextFever = FEVER_EVERY; lastTick = -1; fullT = 0; fillNow = 0; overTick = -1; endReason = "time";
   nextQ.length = 0; nextQ.push(pickDrop(), pickDrop()); nextDirty = true;
+  SCALE = 1; geomScale = 1;
   applyTheme(pick(THEMES)); buildShape(pick(SHAPES));
 }
 function startGame(){
@@ -3912,7 +3966,7 @@ function startGame(){
   document.getElementById("quitBtn").style.display = "";
   for (let i = 0; i < 5; i++) setTimeout(() => { if (gameState === "play") queueSpawn(); }, 250 + i*380);   // さいしょの 5人
   spawnT = .25 + 5*.38 + SPAWN_EVERY;
-  toast(TH.nm + " ・ " + SH.nm + "の お盆");
+  toast(TH.nm + "・" + SH.nm + "のお盆");
 }
 function goHome(){
   gameState = "home"; started = false;
@@ -3928,7 +3982,7 @@ function goHome(){
 function paintLimit(){
   document.querySelectorAll("#limitRow button").forEach(b => b.classList.toggle("on", +b.dataset.l === limit));
   let best = 0; try { best = +localStorage.getItem(bestKey()) || 0; } catch(e){}
-  document.getElementById("homeBest").textContent = best ? "さいこう " + best + "点" : "";
+  document.getElementById("homeBest").textContent = best ? "最高 " + best + "点" : "";
 }
 document.querySelectorAll("#limitRow button").forEach(b => b.addEventListener("click", () => {
   limit = +b.dataset.l;
@@ -4007,7 +4061,7 @@ function openCharSel(){
   const picked = (chosen || []).map(c => ALL_CHARACTERS.indexOf(c)).filter(i => i >= 0);
   grid.textContent = "";
   const paint = () => {
-    cnt.textContent = "えらんだ数 " + picked.length + " / 6";
+    cnt.textContent = "選んだ数 " + picked.length + " / 6";
     okBtn.disabled = picked.length !== 6;
     grid.querySelectorAll(".cc").forEach(el => {
       const n = picked.indexOf(+el.dataset.ci);
@@ -4015,7 +4069,7 @@ function openCharSel(){
       el.querySelector(".no").textContent = n < 0 ? "" : String(n + 1);
     });
     order.textContent = "";
-    if (!picked.length){ order.innerHTML = '<div class="empty">えらぶと ここに ならびます</div>'; return; }
+    if (!picked.length){ order.innerHTML = '<div class="empty">選ぶとここに並びます</div>'; return; }
     const set = picked.map((k, i) => Object.assign({}, ALL_CHARACTERS[k], { r: SIZE_LADDER[i] }));
     const S = 20 / SIZE_LADDER[0];
     set.forEach((c, i) => {
@@ -4105,7 +4159,7 @@ window.__m3d = {
   pick(){ openCharSel(); }, setChosen(names){ chosen = names.map(n => ALL_CHARACTERS.find(c => c.name === n)); applySelected(); paintLineup(); }, get tierNames(){ return TIERS.map(t => t.name); },
   drawC(g, t, r, ph){ drawCreature(g, t, r, ph, 1, 0, .6, 0, 1); }, get theme(){ return C; }, get timeLeft(){ return limit ? limit - playT : playT; },
   fever(){ startFever(); }, sparkle(b){ makeSparkle(b); }, clearAll(u, v){ clearAll(u, v); },
-  get score(){ return [popScore, chainScore, clearScore]; }, get endReason(){ return endReason; }, get fill(){ return fillNow; }, get fullT(){ return fullT; }, get dbg(){ return { fever, pending: pending.length, started, spawnT, playT, nextFever }; }, get state(){ return gameState; }, setPlayT(t){ playT = t; }, end(){ endGame(); },
+  get score(){ return [popScore, chainScore, clearScore]; }, get endReason(){ return endReason; }, get fill(){ return fillNow; }, get scale(){ return SCALE; }, get fullT(){ return fullT; }, get dbg(){ return { fever, pending: pending.length, started, spawnT, playT, nextFever }; }, get state(){ return gameState; }, setPlayT(t){ playT = t; }, end(){ endGame(); },
   get tiltT(){ return { u: tiltT.u, v: tiltT.v }; }, get base(){ return [baseMode, sensor.x0, sensor.y0]; },
 };
 
