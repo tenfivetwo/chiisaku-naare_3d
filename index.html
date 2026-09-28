@@ -12,21 +12,29 @@
   #top{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;
     padding:calc(env(safe-area-inset-top) + 10px) 12px 0;pointer-events:none;}
   #top .sp{flex:1;}
-  #hud{display:flex;align-items:center;gap:10px;background:rgba(255,253,246,.88);border-radius:22px;padding:4px 14px;
-    box-shadow:0 2px 6px rgba(120,90,60,.18);color:#7a5a48;font-weight:bold;height:36px;}
+  #hud{display:flex;align-items:center;gap:8px;background:rgba(255,253,246,.88);border-radius:22px;padding:4px 12px;
+    box-shadow:0 2px 6px rgba(120,90,60,.18);color:#7a5a48;font-weight:bold;min-height:42px;box-sizing:border-box;position:relative;padding-bottom:7px !important;
+    flex:0 1 auto;min-width:0;white-space:nowrap;line-height:1.1;}
+  #hud > div{white-space:nowrap;flex:0 0 auto;}
+  #top button{flex:0 0 auto;}
+  #quitBtn{font-size:14px !important;padding:0 10px !important;}
   #hud.hidden{display:none;}
-  #hud .sc{font-size:22px;min-width:52px;text-align:right;}
+  #hud .sc{font-size:22px;text-align:right;}
   #hud .sc small,#hud .tm small{font-size:11px;margin:0 2px;}
   #scoreV{display:inline-block;}
   #scoreV.bump{animation:bump .35s;}
   @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.35);color:#e0668a}100%{transform:scale(1)}}
   #hud .tm{font-size:17px;}
+  @media (max-width:374px){
+    #hud{gap:6px;padding:4px 10px;} #hud .sc{font-size:19px;} #hud .tm{font-size:15px;}
+    #top{gap:4px !important;padding-left:8px !important;padding-right:8px !important;} #top button{min-width:40px !important;height:40px !important;padding:0 8px !important;}
+  }
   #timeV.hurry{color:#e0405f;}
-  #hud .fv{width:34px;height:8px;border-radius:4px;background:rgba(122,90,72,.15);overflow:hidden;}
+  #hud .fv{position:absolute;left:14px;right:14px;bottom:3px;height:4px;border-radius:2px;background:rgba(122,90,72,.12);overflow:hidden;}
   #feverBar{display:block;height:100%;width:0;background:linear-gradient(90deg,#FFB05C,#FF7EA8);border-radius:4px;}
   #feverBar.now{background:linear-gradient(90deg,#FF7EA8,#FFE85C,#8FE39B,#7FD4FF,#B79BFF);animation:fvb .6s linear infinite;}
   @keyframes fvb{50%{opacity:.5}}
-  #feverBanner{position:fixed;left:0;right:0;top:34%;text-align:center;font-weight:bold;font-size:44px;pointer-events:none;
+  #feverBanner{position:fixed;left:0;right:0;top:34%;text-align:center;font-weight:bold;font-size:min(44px,10vw);white-space:nowrap;pointer-events:none;
     color:#ff7ea8;text-shadow:0 3px 0 #fff,0 0 12px #fff,3px 0 0 #fff,-3px 0 0 #fff;opacity:0;}
   #feverBanner.on{animation:fever 1.6s ease-out;}
   @keyframes fever{0%{opacity:0;transform:scale(.4)}15%{opacity:1;transform:scale(1.15)}25%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
@@ -57,7 +65,25 @@
     background:rgba(255,253,246,.82);border-radius:18px;padding:4px 10px 4px 12px;box-shadow:0 2px 6px rgba(120,90,60,.15);
     pointer-events:none;color:#7a5a48;font-weight:bold;font-size:13px;}
   #nextCard.hidden{display:none;}
+  /* 上の だんには 点数・時間 と「やめる」だけ。ほかの ボタンは 2だんめの みぎに（せまい スマホで かさならない ように） */
+  #tools{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 64px);display:flex;gap:6px;}
+  #tools button{min-width:44px;height:44px;border:none;border-radius:22px;background:rgba(255,253,246,.88);color:#7a5a48;
+    font:inherit;font-weight:bold;font-size:14px;padding:0 10px;box-shadow:0 2px 6px rgba(120,90,60,.18);white-space:nowrap;}
+  @media (max-width:360px){ #tools{gap:4px;right:8px;} #tools button{min-width:40px;height:40px;padding:0 7px;font-size:12px;} #nextCv{width:76px;height:44px;} }
   #nextCv{width:92px;height:52px;display:block;}
+  #timebar{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);height:108px;pointer-events:none;
+    color:#7a5a48;font-weight:bold;}
+  #timebar.hidden{display:none;}
+  #timebar .lb{position:absolute;left:6px;bottom:76px;font-size:15px;text-shadow:0 0 4px #fff,0 0 6px #fff;}
+  #timebar .nm{position:absolute;left:58px;bottom:70px;font-size:32px;letter-spacing:1px;text-shadow:0 0 4px #fff,0 0 6px #fff,0 2px 0 #fff;}
+  #timebar .nm.hurry{color:#e0405f;}
+  #timebar .trk{position:absolute;left:0;right:0;bottom:0;height:26px;border-radius:13px;background:rgba(255,253,246,.9);
+    box-shadow:0 3px 10px rgba(120,90,60,.18);padding:4px;box-sizing:border-box;}
+  #timebar .fil{height:100%;width:100%;border-radius:9px;}
+  #timebar .fil.pulse{animation:fvb .5s linear infinite;}
+  #timebar canvas{position:absolute;bottom:8px;width:60px;height:60px;margin-left:-30px;}
+  #timebar.free .trk,#timebar.free canvas{display:none;}
+  #timebar.free .lb{bottom:8px;} #timebar.free .nm{bottom:2px;}
   #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 124px);transform:translate(-50%,-8px);opacity:0;
     transition:opacity .3s,transform .3s;background:rgba(255,253,246,.9);color:#7a5a48;font-weight:bold;font-size:14px;
     padding:8px 16px;border-radius:18px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 6px rgba(120,90,60,.15);}
@@ -67,6 +93,39 @@
   #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     background:rgba(255,250,238,.72);text-align:center;color:#6d5a4c;}
   #start.hidden{display:none;}
+  #start{overflow-y:auto;padding:12px 0;box-sizing:border-box;justify-content:flex-start !important;}
+  #start > :first-child{margin-top:auto;} #start > :last-child{margin-bottom:auto;}
+  #start > *{flex-shrink:0;}
+  #lineWrap{display:flex;align-items:center;gap:6px;margin:10px 0 2px;background:rgba(255,255,255,.7);border-radius:20px;padding:4px 6px 4px 10px;}
+  #lineup{display:flex;align-items:flex-end;}
+  #lineup canvas{margin:0 -3px;}
+  #pickBtn{font:inherit;font-size:13px;font-weight:bold;color:#fff;background:#f0a0b8;border:none;border-radius:16px;padding:8px 12px;min-height:36px;white-space:nowrap;}
+  #charSel{position:fixed;inset:0;background:rgba(255,250,238,.8);display:flex;align-items:center;justify-content:center;z-index:5;}
+  #charSel.hidden{display:none;}
+  #charSel .box{background:rgba(255,253,246,.98);border-radius:22px;box-shadow:0 6px 20px rgba(120,90,60,.2);color:#6d5a4c;
+    width:min(94vw,440px);max-height:94vh;overflow-y:auto;padding:14px 12px;box-sizing:border-box;text-align:center;}
+  #charSel .ttl{font-size:18px;font-weight:bold;color:#e0668a;}
+  #charSel .sub{font-size:12px;opacity:.8;margin:2px 0 6px;}
+  #csOrder{display:flex;align-items:center;justify-content:center;min-height:48px;background:rgba(240,138,168,.08);border-radius:14px;padding:2px;}
+  #csOrder .arw{font-size:11px;opacity:.5;margin:0 -2px;}
+  #csOrder .empty{font-size:12px;opacity:.6;}
+  #csGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px;margin-top:8px;}
+  #csGrid .cc{position:relative;background:#fff;border:2px solid #f3e3d6;border-radius:14px;padding:3px 0 4px;}
+  #csGrid .cc canvas{display:block;margin:0 auto;}
+  #csGrid .cc .nm{font-size:11px;font-weight:bold;}
+  #csGrid .cc.on{border-color:#f08aa8;background:#fff3f6;}
+  #csGrid .cc.sec .nm{color:#9a78c8;}
+  #csGrid .cc .no{position:absolute;right:4px;top:3px;min-width:18px;height:18px;border-radius:9px;background:#f08aa8;color:#fff;font-size:12px;
+    font-weight:bold;line-height:18px;display:none;}
+  #csGrid .cc.on .no{display:block;}
+  #charSel .foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;font-weight:bold;}
+  #csDef{font:inherit;font-size:12px;font-weight:bold;color:#7a5a48;background:#fff;border:2px solid #f3c7d4;border-radius:14px;padding:5px 10px;}
+  #charSel .btns{display:flex;gap:10px;justify-content:center;margin-top:10px;}
+  #charSel .btns button{font:inherit;font-weight:bold;font-size:16px;border:none;border-radius:22px;padding:10px 22px;min-height:44px;}
+  #csOk{color:#fff;background:#f08aa8;box-shadow:0 3px 0 #d86c8d;}
+  #csOk:disabled{background:#e6d6d0;box-shadow:none;}
+  #csCancel{color:#7a5a48;background:#fff;border:2px solid #f3c7d4 !important;}
+  #quitBtn.arm{background:#f08aa8 !important;color:#fff !important;}
   #start h1{margin:0 0 6px;font-size:30px;color:#e0668a;text-shadow:0 2px 0 #fff;}
   #start p{margin:4px 16px;font-size:15px;line-height:1.6;}
   #start .warn{font-size:13px;color:#7a6a9a;}
@@ -82,14 +141,17 @@
 </head>
 <body>
 <canvas id="cv"></canvas>
-<div id="top"><div class="ttl" id="ttl">まめまる3D（おためし）</div>
+<div id="top"><div class="ttl" id="ttl" style="display:none"></div>
   <div id="hud" class="hidden"><div class="sc"><span id="scoreV">0</span><small>点</small></div>
-    <div class="tm"><small id="timeL">のこり</small><span id="timeV">3:00</span></div>
-    <div class="fv" title="フィーバーまで"><i id="feverBar"></i></div></div><div class="sp"></div>
-  <button id="levelBtn" style="display:none">まっすぐ</button><button id="quitBtn" style="display:none">やめる</button><button id="sceneBtn" title="けしきと お盆を かえる">🎨</button><button id="soundBtn">🔊</button></div>
+    <div class="tm" style="display:none"><small id="timeL">のこり</small><span id="timeV">3:00</span></div>
+    <div class="fv" title="まめまるシャワーまで"><i id="feverBar"></i></div></div><div class="sp"></div>
+  <button id="quitBtn" style="display:none">やめる</button></div>
+<div id="tools" style="display:none"><button id="levelBtn" style="display:none">まっすぐ</button><button id="sceneBtn" title="けしきと お盆を かえる">🎨</button><button id="soundBtn">🔊</button></div>
 <div id="nextCard" class="hidden"><span>つぎ</span><canvas id="nextCv"></canvas></div>
 <div id="toast"></div>
-<div id="feverBanner">フィーバー！</div>
+<div id="timebar" class="hidden"><span class="lb" id="tbLbl">のこり</span><span class="nm" id="tbNum">3:00</span>
+  <div class="trk"><div class="fil" id="tbFill"></div><canvas id="tbRun"></canvas></div></div>
+<div id="feverBanner">まめまるシャワー！</div>
 <div id="result"><div class="card">
   <div class="rt">おつかれさま！</div>
   <div class="rm" id="resMode"></div>
@@ -98,13 +160,14 @@
   <div class="rb" id="resBest"></div>
   <div class="btns"><button id="againBtn">もう一度</button><button id="homeBtn">ホームへ</button></div>
 </div></div>
-<div id="hint">スマホを傾けて転がそう ／ パソコンはドラッグか矢印キー</div>
+<div id="hint" style="display:none">スマホを傾けて転がそう ／ パソコンはドラッグか矢印キー</div>
 <div id="start">
   <h1>まめまる3D</h1>
   <p>お盆を傾けて、おなじ子どうしを<br>くっつけよう。くっつくと小さくなるよ。</p>
   <p>いちばん小さい子が2匹そろうと、<br>門からなかよく出かけていくよ。</p>
   <p>生まれた子は近くのなかまを呼ぶよ。<br>つづけてくっつくと「連鎖」！</p>
   <p class="warn">つむじかぜにさわると、もとの2人にもどっちゃう。<br>はたの立っている切れ目からは、小さい子が出ていっちゃうよ。</p>
+  <div id="lineWrap"><div id="lineup"></div><button id="pickBtn">まめまるを えらぶ</button></div>
   <p class="small">あそぶ時間</p>
   <div id="limitRow" class="chips"><button data-l="180">3分</button><button data-l="300">5分</button><button data-l="600">10分</button><button data-l="0">無制限</button></div>
   <p class="best" id="homeBest"></p>
@@ -113,6 +176,14 @@
   <div id="baseRow" class="chips"><button data-m="auto">いまの持ち方</button><button data-m="30">30度</button><button data-m="45">45度</button><button data-m="0">平ら</button></div>
   <p class="small">「いまの持ち方」は、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
 </div>
+<div id="charSel" class="hidden"><div class="box">
+  <div class="ttl">まめまるを 6つ えらんでね</div>
+  <div class="sub">先に えらんだ子ほど 大きくなります</div>
+  <div id="csOrder"></div>
+  <div id="csGrid"></div>
+  <div class="foot"><span id="csCount"></span><button id="csDef">もとの6体</button></div>
+  <div class="btns"><button id="csCancel">もどる</button><button id="csOk">決定</button></div>
+</div></div>
 <script>
 (() => {
 "use strict";
@@ -1795,7 +1866,7 @@ const THEMES = [
 const DEFAULT_TIERS = ALL_CHARACTERS.slice(0, 6);
 const SIZE_LADDER = [64, 49, 36, 29, 26, 22];
 const TIERS = DEFAULT_TIERS.map((c, i) => Object.assign({}, c, { r: SIZE_LADDER[i] }));
-const LAST = TIERS.length - 1;
+let LAST = TIERS.length - 1;       // キャラえらびで 入れかわる（いまは いつも 5）
 // おちてくる 子。ひよこは 合体でしか 生まれない（本体の きも）。
 // お盆は せまいので らいおんを すこし へらして ある。
 const DROP_POOL = [0,0, 1,1,1, 2,2,2, 3,3,3, 4,4];
@@ -1840,7 +1911,7 @@ const SCENE_EVERY = 4;   // 見送り 何回ごとに けしきと お盆が か
 const FEVER_EVERY = 45;  // 何秒ごとに フィーバーが 来るか
 const FEVER_N    = 8;    // フィーバーで ふってくる 数
 const FEVER_GAP  = 0.8;  // フィーバーの あいだ 何秒ごとに 1人
-const CHAIN_MIN  = 4;    // 連鎖の 点は 4連鎖から（本体と おなじ）
+const CHAIN_MIN  = 3;    // 連鎖の 点は 3連鎖から（第6版：本体は 4。3Dは 連鎖が 短く なりがち なので 作者の 判断で 3に）
 const SPARKLE_RATE = 1/28; // ひよこが にじいろで 生まれる かくりつ（本体と おなじ）
 const LIMITS = [180, 300, 600, 0];   // 時間せいげん（0＝無制限）
 const OB_N     = 3;      // じゃまな 柱の 数
@@ -2003,17 +2074,30 @@ function buildShape(sh, gapAng){
    ・ふちに くっつけた 柱（ふちの 出っぱり）… ふちとの あいだに すきまは ない
    ・まんなかの ほうの 柱 …………………… ふちまで OB_PASS いじょう あける
    柱どうしも OB_PASS いじょう はなす。「大きい子だけ 通れない 道」で 詰まる 絵を 作らない。 */
+/* ふちまでの ほんとうの きょり（ぜんぶの 辺を しらべる。柱を 置く ときだけ つかう）。
+   wallInfo は 電池のため 近道を して いて、まんなか ふきんでは 大きめの 値を かえす
+   （第6版で 発覚：ハートの くぼみと まんなかの 柱の あいだが せまいのに 通って いた）。 */
+function wallDistExact(u, v){
+  let best = 1e9;
+  for (let i = 0; i < N_SEG; i++){
+    const p = IN[i], q = IN[(i + 1) % N_SEG];
+    const eu = q.u - p.u, ev = q.v - p.v;
+    const t = clamp(((u - p.u)*eu + (v - p.v)*ev) / (eu*eu + ev*ev), 0, 1);
+    best = Math.min(best, Math.hypot(u - p.u - eu*t, v - p.v - ev*t));
+  }
+  return best;
+}
 function obstacleOK(o, list){
-  const w = wallInfo(o.u, o.v);
   if (o.onRim){
-    // ふちに 半分 うまって いる。むかいがわ（はなれた ふちの 点）とは OB_PASS いじょう
-    // むかいがわ ＝ 柱から 見て 中むきの 向きから 60度 いないに ある ふちの 点
+    // ふちに 半分 うまって いる。「むかいがわ」の ふちとは OB_PASS いじょう あける。
+    // むかいがわ ＝ 柱と その ふちの 点を むすんだ 線の まんなかが、お盆の 中ほどに ある もの
+    // （となりの ふち に そった 点は、線の まんなかが ふちの すぐ そば なので のぞく）。
     for (const q of IN){
-      const x = q.u - o.u, y = q.v - o.v, d = Math.hypot(x, y) || 1;
-      if ((x*w.nu + y*w.nv)/d < .5) continue;
-      if (d < o.r + OB_PASS) return false;
+      const d = Math.hypot(q.u - o.u, q.v - o.v);
+      if (d >= o.r + OB_PASS) continue;
+      if (wallDistExact((q.u + o.u)/2, (q.v + o.v)/2) > 26) return false;
     }
-  } else if (w.dist - o.r < OB_PASS) return false;
+  } else if (wallDistExact(o.u, o.v) - o.r < OB_PASS) return false;
   for (const p of list) if (Math.hypot(p.u - o.u, p.v - o.v) - p.r - o.r < OB_PASS) return false;
   for (const gt of gates.concat([gap])) if (Math.hypot(gt.P.u - o.u, gt.P.v - o.v) < 120) return false;
   return true;
@@ -2021,8 +2105,14 @@ function obstacleOK(o, list){
 function placeObstacles(){
   OBS = [];
   // まんなかに 1つ（お盆が ドーナツの ように なる）
-  for (let k = 0; k < 200 && OBS.length < 1; k++){
+  for (let k = 0; k < 120 && OBS.length < 1; k++){
     const o = { u: rnd(-12, 12), v: rnd(-12, 12), r:OB_R, ph: rnd(0, 6), onRim:false };
+    if (obstacleOK(o, OBS)) OBS.push(o);
+  }
+  // まんなかに 置けない 形（ハートは くぼみが 近い）では、置ける ところを さがす
+  for (let k = 0; k < 300 && OBS.length < 1; k++){
+    const a = rnd(0, 6.2832), d = Math.sqrt(Math.random()) * rhoAt(a);
+    const o = { u: Math.cos(a)*d, v: Math.sin(a)*d, r:OB_R, ph: rnd(0, 6), onRim:false };
     if (obstacleOK(o, OBS)) OBS.push(o);
   }
   // のこりは ふちの 出っぱり
@@ -2031,6 +2121,10 @@ function placeObstacles(){
     const d = r - OB_R*.55;                          // 半分 ちょっと ふちに うめる → すきま なし
     const o = { u: Math.cos(a)*d, v: Math.sin(a)*d, r:OB_R, ph: rnd(0, 6), onRim:true };
     if (wallInfo(o.u, o.v).dist > OB_R*.8) continue;  // くぼんだ ところは さける
+    // ふちが 内がわへ へこんで いる ところ（ハートの まんなかの くぼみ）には 置かない
+    const ii = Math.round(a/6.2832*N_SEG) % N_SEG;
+    const p0 = IN[(ii - 4 + N_SEG) % N_SEG], p1 = IN[ii], p2 = IN[(ii + 4) % N_SEG];
+    if ((p1.u - p0.u)*(p2.v - p1.v) - (p1.v - p0.v)*(p2.u - p1.u) < 0) continue;
     if (obstacleOK(o, OBS)) OBS.push(o);
   }
   for (const b of balls) for (const o of OBS){      // かさなった 子は よける
@@ -3564,6 +3658,7 @@ function stepFever(dt){
 }
 
 function stepGame(dt){
+  if (quitArm > 0){ quitArm -= dt; if (quitArm <= 0) disarmQuit(); }
   if (gameState === "play"){
     playT += dt;
     if (playT >= nextFever && !fever){ startFever(); nextFever += FEVER_EVERY; }
@@ -3591,6 +3686,57 @@ function paintHUD(){
   const k = fever ? 1 : clamp(1 - (nextFever - playT)/FEVER_EVERY, 0, 1);
   fb.style.width = (k*100).toFixed(1) + "%";
   fb.classList.toggle("now", !!fever);
+  paintTimeBar();
+}
+/* ============================================================
+   のこり時間の バー（第6版・作者が C案を えらんだ）
+   ------------------------------------------------------------
+   お盆の 下に 大きな バー。バーの さきを **いちばん 小さい子（TIERS[LAST]）** が
+   ぴょこぴょこ 走る。いまは ひよこ だが、キャラえらびを 入れたら その回の いちばん
+   小さい子に なる（名前を じかに 書かない こと）。
+   のこり 30秒で オレンジ、10秒で 赤。無制限の ときは バーを 出さず「けいか」だけ。
+   ============================================================ */
+const tbFill = document.getElementById("tbFill"), tbRun = document.getElementById("tbRun");
+const tbNum = document.getElementById("tbNum"), tbLbl = document.getElementById("tbLbl"), tbBox = document.getElementById("timebar");
+const tbCtx = tbRun.getContext("2d");
+let tbColKey = "";
+function paintTimeBar(){
+  if (gameState === "home"){ return; }
+  const left = limit ? Math.max(0, limit - playT) : playT;
+  setText(tbNum, fmt(left));
+  setText(tbLbl, limit ? "のこり" : "けいか");
+  tbBox.classList.toggle("free", !limit);
+  const hurry = limit && left <= 10 && gameState === "play";
+  tbNum.classList.toggle("hurry", !!hurry);
+  if (!limit) return;
+  const k = clamp(left/limit, 0, 1);
+  tbFill.style.width = (k*100).toFixed(2) + "%";
+  const key = left <= 10 ? "r" : left <= 30 ? "o" : "t" + TH.nm;
+  if (key !== tbColKey){
+    tbColKey = key;
+    tbFill.style.background = key === "r" ? "linear-gradient(90deg,#ff6f8c,#ffa0b3)"
+                            : key === "o" ? "linear-gradient(90deg,#ffa94d,#ffd27a)"
+                            : `linear-gradient(90deg,${C.archL},${C.arch})`;
+  }
+  tbFill.classList.toggle("pulse", !!hurry);
+  // 走る 子（バーの さき）
+  tbRun.style.left = `calc(${(k*100).toFixed(2)}% * (1 - 40px / 100%))`;
+  tbRun.style.left = `calc(20px + (100% - 40px) * ${k.toFixed(4)})`;
+  const w = tbRun.clientWidth, h = tbRun.clientHeight;
+  if (!w) return;
+  if (tbRun.width !== Math.round(w*DPR)){ tbRun.width = Math.round(w*DPR); tbRun.height = Math.round(h*DPR); }
+  tbCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  tbCtx.clearRect(0, 0, w, h);
+  const run = gameState === "play" && left > 0;
+  const sp = hurry ? 16 : 9;                            // のこり すこしで 足が はやく なる
+  const hop = run ? Math.abs(Math.sin(time*sp))*6 : 0;
+  const r = h*.30;
+  tbCtx.globalAlpha = .18; tbCtx.fillStyle = "#6a5040";
+  tbCtx.beginPath(); tbCtx.ellipse(w/2, h - 5, r*.8, r*.22, 0, 0, 7); tbCtx.fill(); tbCtx.globalAlpha = 1;
+  tbCtx.save(); tbCtx.translate(w/2, h - 5 - r - hop);
+  if (run) tbCtx.rotate(-(.12 + Math.sin(time*sp)*.1));          // 左へ 走って いる かたむき
+  drawCreature(tbCtx, LAST, r, time*3, 1, 0, run ? 1 : 0, 0, 1);
+  tbCtx.restore();
 }
 function setText(el, v){ v = String(v); if (el && el.textContent !== v) el.textContent = v; }
 
@@ -3625,13 +3771,16 @@ function resetGame(){
   applyTheme(pick(THEMES)); buildShape(pick(SHAPES));
 }
 function startGame(){
+  disarmQuit();
+  applySelected();
   resetGame();
   gameState = "play"; started = true;
   document.getElementById("start").classList.add("hidden");
   document.getElementById("result").classList.remove("show");
   document.getElementById("nextCard").classList.remove("hidden");
   document.getElementById("hud").classList.remove("hidden");
-  document.getElementById("ttl").style.display = "none";
+  document.getElementById("tools").style.display = "";
+  tbBox.classList.remove("hidden"); tbColKey = "";
   document.getElementById("quitBtn").style.display = "";
   for (let i = 0; i < 5; i++) setTimeout(() => { if (gameState === "play") queueSpawn(); }, 250 + i*380);   // さいしょの 5人
   spawnT = .25 + 5*.38 + SPAWN_EVERY;
@@ -3642,7 +3791,8 @@ function goHome(){
   document.getElementById("result").classList.remove("show");
   document.getElementById("hud").classList.add("hidden");
   document.getElementById("nextCard").classList.add("hidden");
-  document.getElementById("ttl").style.display = "";
+  document.getElementById("tools").style.display = "none";   // ホームでは ボタンを かくす（はじめの 画面の 字と かさなる）
+  tbBox.classList.add("hidden");
   document.getElementById("quitBtn").style.display = "none";
   document.getElementById("start").classList.remove("hidden");
   paintLimit();
@@ -3659,8 +3809,133 @@ document.querySelectorAll("#limitRow button").forEach(b => b.addEventListener("c
 }));
 document.getElementById("againBtn").addEventListener("click", () => { beep(660, .06, "sine", .05); startGame(); });
 document.getElementById("homeBtn").addEventListener("click", goHome);
-document.getElementById("quitBtn").addEventListener("click", () => { if (gameState === "play") endGame(); });
+/* 「やめる」は 2だんかい（本体と おなじ）。1回目は 文字が「本当？」に かわるだけ。2.2秒で もどる */
+const quitBtn = document.getElementById("quitBtn");
+let quitArm = 0;
+function disarmQuit(){ quitArm = 0; quitBtn.textContent = "やめる"; quitBtn.classList.remove("arm"); }
+quitBtn.addEventListener("click", () => {
+  if (gameState !== "play") return;
+  if (quitArm > 0){ disarmQuit(); endGame(); return; }
+  quitArm = 2.2; quitBtn.textContent = "本当？"; quitBtn.classList.add("arm");
+  beep(420, .08, "sine", .06);
+});
 paintLimit();
+
+/* ============================================================
+   キャラえらび（第7版・本体と おなじ しくみ）
+   ------------------------------------------------------------
+   ・えらべるのは 15体 ＋ 解放ずみの シークレット（本体の あいことばで 解放した もの。
+     同じ サイト（tenfivetwo.github.io）なら 本体の 記録を そのまま 読む）。
+   ・6体を えらんだ 順に 大きさの はしご SIZE_LADDER を かぶせる。先に えらんだ子ほど 大きい。
+   ・中身（ぶつり・点数）は どの 6体でも 同じ。変わるのは 絵だけ（本体 設計判断）。
+   ・保存先は 3D だけの `mamemaru3d-selected-chars`（本体の えらびを こわさない）。
+   ・いちばん 小さい子は TIERS[LAST]。見送り・にじいろ・時間バーの 走る子は ぜんぶ ここを 見る。
+   ============================================================ */
+/* 解放ずみの シークレットだけ えらべる（本体と おなじ。unlockedChars は 本体の 記録 mamemaru-unlocked） */
+function isUsable(c){ return !c || !c.secret || unlockedChars.indexOf(c.name) >= 0; }
+let chosen = null;          // えらんだ 6体（ALL_CHARACTERS の 要素）
+try {
+  const names = JSON.parse(localStorage.getItem("mamemaru3d-selected-chars") || "null");
+  if (Array.isArray(names)){
+    const cs = names.map(n => ALL_CHARACTERS.find(c => c.name === n)).filter(c => c && isUsable(c));
+    if (cs.length === 6) chosen = cs;
+  }
+} catch(e){}
+function applySelected(){
+  const set = chosen || DEFAULT_TIERS;
+  TIERS.length = 0;
+  set.forEach((c, i) => TIERS.push(Object.assign({}, c, { r: SIZE_LADDER[i] })));
+  LAST = TIERS.length - 1;
+  nextDirty = true;
+}
+/* drawCreature は TIERS[i] を 見るので、見本を えがく あいだだけ 入れかえて かならず もどす */
+function withTiers(list, fn){
+  const bk = TIERS.slice();
+  TIERS.length = 0; list.forEach(c => TIERS.push(c));
+  try { fn(); } finally { TIERS.length = 0; bk.forEach(c => TIERS.push(c)); }
+}
+function drawIcon(cv, list, i, r, size){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = size*dpr; cv.height = size*dpr; cv.style.width = size + "px"; cv.style.height = size + "px";
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.translate(size/2, size/2);
+  withTiers(list, () => { try { drawCreature(g, i, r, i*1.3, 1, 0, .6, 0, 1); } catch(e){} });
+}
+/* ホームの「いまの 顔ぶれ」 */
+function paintLineup(){
+  const row = document.getElementById("lineup");
+  row.textContent = "";
+  const set = (chosen || DEFAULT_TIERS).map((c, i) => Object.assign({}, c, { r: SIZE_LADDER[i] }));
+  const S = 17 / SIZE_LADDER[0];
+  set.forEach((c, i) => {
+    const cv = document.createElement("canvas");
+    drawIcon(cv, set, i, SIZE_LADDER[i]*S, 40);
+    row.appendChild(cv);
+  });
+}
+function openCharSel(){
+  const layer = document.getElementById("charSel");
+  const grid = document.getElementById("csGrid"), order = document.getElementById("csOrder");
+  const okBtn = document.getElementById("csOk"), cnt = document.getElementById("csCount");
+  const picked = (chosen || []).map(c => ALL_CHARACTERS.indexOf(c)).filter(i => i >= 0);
+  grid.textContent = "";
+  const paint = () => {
+    cnt.textContent = "えらんだ数 " + picked.length + " / 6";
+    okBtn.disabled = picked.length !== 6;
+    grid.querySelectorAll(".cc").forEach(el => {
+      const n = picked.indexOf(+el.dataset.ci);
+      el.classList.toggle("on", n >= 0);
+      el.querySelector(".no").textContent = n < 0 ? "" : String(n + 1);
+    });
+    order.textContent = "";
+    if (!picked.length){ order.innerHTML = '<div class="empty">えらぶと ここに ならびます</div>'; return; }
+    const set = picked.map((k, i) => Object.assign({}, ALL_CHARACTERS[k], { r: SIZE_LADDER[i] }));
+    const S = 20 / SIZE_LADDER[0];
+    set.forEach((c, i) => {
+      if (i){ const a = document.createElement("span"); a.className = "arw"; a.textContent = "▸"; order.appendChild(a); }
+      const cv = document.createElement("canvas");
+      drawIcon(cv, set, i, SIZE_LADDER[i]*S, 44);
+      order.appendChild(cv);
+    });
+  };
+  ALL_CHARACTERS.forEach((c, idx) => {
+    if (!isUsable(c)) return;                      // 解放して いない シークレットは カードを 作らない
+    const card = document.createElement("div");
+    card.className = "cc" + (c.secret ? " sec" : ""); card.dataset.ci = idx;
+    const cv = document.createElement("canvas");
+    drawIcon(cv, ALL_CHARACTERS, idx, 22, 56);
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = c.name;
+    const no = document.createElement("div"); no.className = "no";
+    card.append(cv, nm, no);
+    card.addEventListener("click", () => {
+      const k = picked.indexOf(idx);
+      if (k >= 0) picked.splice(k, 1);
+      else if (picked.length < 6) picked.push(idx);
+      else return;
+      beep(k >= 0 ? 520 : 700, .05, "sine", .05);
+      paint();
+    });
+    grid.appendChild(card);
+  });
+  okBtn.onclick = () => {
+    if (picked.length !== 6) return;
+    chosen = picked.map(k => ALL_CHARACTERS[k]);
+    try { localStorage.setItem("mamemaru3d-selected-chars", JSON.stringify(chosen.map(c => c.name))); } catch(e){}
+    closeCharSel();
+  };
+  document.getElementById("csDef").onclick = () => {    // もとの 6体に もどす
+    picked.length = 0; DEFAULT_TIERS.forEach(c => picked.push(ALL_CHARACTERS.indexOf(c))); paint();
+  };
+  document.getElementById("csCancel").onclick = closeCharSel;   // なにも 保存しない
+  paint();
+  layer.classList.remove("hidden");
+}
+function closeCharSel(){
+  document.getElementById("charSel").classList.add("hidden");
+  applySelected(); paintLineup();
+}
+document.getElementById("pickBtn").addEventListener("click", openCharSel);
+applySelected();
+paintLineup();
 
 /* 持ち方の 基準を えらぶ（はじめの 画面） */
 function paintBase(){
@@ -3694,11 +3969,13 @@ window.__m3d = {
   step(n, dt){ for (let i = 0; i < n; i++){ update(dt || 1/60); drawNext(dt || 1/60); } draw(); },
   scene(ti, si, ga){ applyTheme(THEMES[ti]); buildShape(SHAPES[si], ga); },
   swap(ti, si){ changeScene(ti, si); },
-  wall(u, v){ return wallInfo(u, v); },
+  wall(u, v){ return wallInfo(u, v); }, wallX(u, v){ return wallDistExact(u, v); }, get IN(){ return IN; },
   shapes: SHAPES.map(s => s.nm), themes: THEMES.map(t => t.nm),
   start(){ document.getElementById("startBtn").click(); },
   stop(){ running = false; },
   quiet(){ started = false; },
+  pick(){ openCharSel(); }, setChosen(names){ chosen = names.map(n => ALL_CHARACTERS.find(c => c.name === n)); applySelected(); paintLineup(); }, get tierNames(){ return TIERS.map(t => t.name); },
+  drawC(g, t, r, ph){ drawCreature(g, t, r, ph, 1, 0, .6, 0, 1); }, get theme(){ return C; }, get timeLeft(){ return limit ? limit - playT : playT; },
   fever(){ startFever(); }, sparkle(b){ makeSparkle(b); }, clearAll(u, v){ clearAll(u, v); },
   get score(){ return [popScore, chainScore, clearScore]; }, get dbg(){ return { fever, pending: pending.length, started, spawnT, playT, nextFever }; }, get state(){ return gameState; }, setPlayT(t){ playT = t; }, end(){ endGame(); },
   get tiltT(){ return { u: tiltT.u, v: tiltT.v }; }, get base(){ return [baseMode, sensor.x0, sensor.y0]; },
