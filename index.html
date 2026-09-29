@@ -2365,8 +2365,14 @@ function changeScene(ti, si){
   sceneSwap = { th, sh, t:0 };
   flashT = .55;
 }
+/* 第11版：お盆が 切りかわった 直後は「こえちゃった」を 数えない（作者が えらんだ 1案）。
+   切りかえで みんな ぽんっと 跳ねて 落ち直すので、ぎっしりの ときは だれかが 上に のって しまう。
+   その あいだに 落ちつくか、傾けて 直せる ように 5秒 まつ。 */
+const SWAP_GRACE = 5;
+let overGrace = 0;
 function doSwap(){
   const { th, sh } = sceneSwap;
+  overGrace = SWAP_GRACE;
   applyTheme(th); buildShape(sh); outs = [];
   for (const b of balls){ b.vh = Math.max(b.vh, 160); b.h = Math.max(b.h, 1); makeShock(b, rnd(0, .1), .4, 1); }
   toast(th.nm + "・" + sh.nm + "のお盆");
@@ -2707,6 +2713,7 @@ function stepWaiters(dt){
                           : { tier:w.tier, r:w.r, u:s.u, v:s.v, t:.5, warn:.75 });
       continue;
     }
+    if (overGrace > 0) w.t = 0;                          // 切りかえ 直後は 数えない
     if (gameState === "play" && w.t >= OVER_SEC){ endGame("over"); return; }
   }
 }
@@ -4498,6 +4505,12 @@ function onTop(b){
 function stepOver(dt){
   fillNow += (fillRatio() - fillNow) * Math.min(1, dt*4);   // ちらつかない ように すこし なめらかに
   if (gameState !== "play") return;
+  if (overGrace > 0){
+    overGrace -= dt;
+    for (const b of balls) b.overT = 0;                 // 3・2・1 も 出さない
+    if (overTick !== -1) overTick = -1;
+    return;
+  }
   let worst = 99;
   // 第9版：あふれ ＝ **ほかの 子の 上に のった まま**（作者：「こえちゃった」の 線が 分からない。のった 状態で よい）。
   // 上に のって いる 子の 頭の 上に 3・2・1。すべり おりれば（傾けて 場所を あければ）カウントは 消える。
@@ -4538,7 +4551,7 @@ function resetGame(){
   chainLive = null; sends = 0; playT = 0; popScore = 0; chainScore = 0; clearScore = 0; clears = 0;
   fever = null; nextFever = FEVER_EVERY; lastTick = -1; fullT = 0; fillNow = 0; overTick = -1; endReason = "time";
   nextQ.length = 0; nextQ.push(pickDrop(), pickDrop()); nextDirty = true;
-  SCALE = 1; geomScale = 1; brickT = BRICK_FIRST; waiters = [];
+  SCALE = 1; geomScale = 1; brickT = BRICK_FIRST; waiters = []; overGrace = 0;
   applyTheme(pick(THEMES)); buildShape(pick(SHAPES));
 }
 function startGame(){
