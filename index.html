@@ -3921,8 +3921,10 @@ function loop(now){
   catch(e){ if (!loop.warned){ loop.warned = true; console.error(e); } }
 }
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden){ running = false; cancelAnimationFrame(rafId); if (typeof AC !== "undefined" && AC && AC.state === "running") AC.suspend().catch(() => {}); }
-  else if (!running){ running = true; last = performance.now(); kick0(); if (typeof AC !== "undefined" && AC && AC.state === "suspended") AC.resume().catch(() => {}); }
+  // 第12版の しくじり：かくした ときに 音の しくみを 自分で 止めて いたら、iPhone では 画面に さわらないと
+  // 動き出さず、もどった あと 音が 出なく なった。止めるのは ブラウザに まかせる
+  if (document.hidden){ running = false; cancelAnimationFrame(rafId); }
+  else if (!running){ running = true; last = performance.now(); kick0(); }
 });
 
 /* ---------------- 画面の ボタン ---------------- */
@@ -3932,8 +3934,23 @@ const startBox = document.getElementById("start");
 levelBtn.addEventListener("click", level);
 soundBtn.addEventListener("click", () => {
   soundOn = !soundOn;
-  soundBtn.textContent = soundOn ? "🔊" : "🔈";
+  paintSound();
+  try { localStorage.setItem("mamemaru3d-sound", soundOn ? "1" : "0"); } catch(e){}
+  if (soundOn){ unlockAudio(); beep(880, .08, "triangle", .07); }   // 入れた ときは「ぴっ」と 鳴らして わかる ように
 });
+function paintSound(){ soundBtn.textContent = soundOn ? "🔊" : "🔇"; soundBtn.setAttribute("aria-label", soundOn ? "音あり" : "音なし"); }
+try { if (localStorage.getItem("mamemaru3d-sound") === "0") soundOn = false; } catch(e){}
+paintSound();
+/* iPhone などは、画面に さわった しゅんかんで ないと 音の しくみが 動き出さない。
+   さわる たびに 止まって いれば 動かし直す（ほかの アプリから もどった あとも 鳴る ように） */
+function unlockAudio(){
+  if (!soundOn) return;
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state !== "running") AC.resume().catch(() => {});
+  } catch(e){}
+}
+for (const ev of ["pointerdown", "touchend", "keydown"]) addEventListener(ev, unlockAudio, { passive: true, capture: true });
 document.getElementById("sceneBtn").addEventListener("click", () => changeScene());
 /* ============================================================
    ゲームの ながれ（第5版）：ホーム → あそぶ（時間せいげん）→ けっか
