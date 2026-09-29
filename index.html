@@ -174,8 +174,8 @@
   <p class="small">スマホは「今の持ち方」なら、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
 </div>
 <div id="charSel" class="hidden"><div class="box">
-  <div class="ttl">まめまるを6つ選んでね</div>
-  <div class="sub">先に選んだ子ほど大きくなります</div>
+  <div class="ttl">まめまるを選んでね（1〜6つ）</div>
+  <div class="sub">先に選んだ子ほど大きくなります。最後に選んだ子がいちばん小さい子です</div>
   <div id="csOrder"></div>
   <div id="csGrid"></div>
   <div class="foot"><span id="csCount"></span><button id="csDef">最初の6体</button></div>
@@ -1862,7 +1862,23 @@ const THEMES = [
 
 const ROLL3D_DEFAULT = (typeof ROLL_PROTO !== "undefined") && ROLL_PROTO;
 const DEFAULT_TIERS = ALL_CHARACTERS.slice(0, 6);
-const SIZE_LADDER = [64, 49, 36, 29, 26, 22];
+/* 第11版：えらぶ 数は 1〜6種（作者の 注文）。
+   大きさの はしご：6種の はしご［64・49・36・29・26・22］の 上を、えらんだ 数で 同じ 間かくに たどる。
+   いちばん 大きい子は いつも 64、**いちばん 小さい子は いつも 22**（6種の ときの いちばん 小さい子と 同じ）。
+     5種 → 64・46・33・27・22 ／ 4種 → 64・40・28・22 ／ 3種 → 64・33・22 ／ 2種 → 64・22 ／ 1種 → 22 */
+const LADDER6 = [64, 49, 36, 29, 26, 22];
+const MAX_TYPES = 6;
+function sizeLadder(n){
+  if (n <= 1) return [LADDER6[5]];
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const x = i*5/(n - 1), k = Math.min(4, Math.floor(x)), f = x - k;
+    out.push(Math.round(LADDER6[k] + (LADDER6[k + 1] - LADDER6[k])*f));
+  }
+  return out;
+}
+let SIZE_LADDER = LADDER6.slice();
+const CHAR_KEY = "mamemaru3d-selected-chars";
 const TIERS = DEFAULT_TIERS.map((c, i) => Object.assign({}, c, { r: SIZE_LADDER[i] }));
 let LAST = TIERS.length - 1;       // キャラえらびで 入れかわる（いまは いつも 5）
 // おちてくる 子。ひよこは 合体でしか 生まれない（本体の きも）。
@@ -2372,8 +2388,14 @@ let chainLive = null; // いま つづいて いる 連鎖
 const BIG_T = 180;
 function pickDrop(){
   const k = 0;   // 第9版：大きい子を ふやすのは やめた（おなじ子が となり あいやすく なり、かえって くっつきやすかった）
+  // ふってくるのは いちばん 小さい子 いがい。1種の ときだけ その子が ふってくる（2匹 くっつくと 出かける）
+  const n = TIERS.length;
   const w = ROLL3D_DEFAULT ? [6, 3, 3, 2, 2]         // 試作：らいおんを 多めに
-                           : [2 + 6*k, 3 + 3*k, 3, 3 - 1.5*k, 2 - 1.5*k];
+          : n === 6 ? [2 + 6*k, 3 + 3*k, 3, 3 - 1.5*k, 2 - 1.5*k]
+          : n === 5 ? [2, 3, 3, 2]
+          : n === 4 ? [2, 3, 2]
+          : n === 3 ? [1, 1]
+          : [1];
   let x = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < w.length; i++){ x -= w[i]; if (x < 0) return i; }
   return 0;
@@ -3184,7 +3206,7 @@ function escape(b){
   const vn = b.vu*gap.n.u + b.vv*gap.n.v;
   const add = Math.max(0, 150 - vn);
   outs.push({ tier:b.tier, r:b.r, u:b.u, v:b.v, vu:b.vu + gap.n.u*add, vv:b.vv + gap.n.v*add,
-              y: floorY(b.u, b.v) + b.h, vy: Math.max(0, b.vh), age:0, phase:b.phase, roll:b.roll, sq:0, sqv:0 });
+              y: floorY(b.u, b.v) + b.h, vy: Math.max(0, b.vh), age:0, phase:b.phase, roll:b.roll, sq:0, sqv:0, q:b.q });
   fx.push({ t:"txt", u:b.u, v:b.v, h: b.r*2 + 20, s:"あっ！", life:1.0, age:0, c:"#7a6a9a", size:20 });
   for (const o of balls) if (o !== b && o.state === "ok" && Math.hypot(o.u - b.u, o.v - b.v) < 170) makeShock(o, rnd(.05, .2), .5, 1);
   beep(700, .45, "sine", .06, .45);      // ひゅ〜（下がる 音）
@@ -3197,6 +3219,7 @@ function stepOuts(dt){
     const sp = Math.hypot(o.vu, o.vv);
     if (sp > 130){ o.vu *= 1 - .4*dt; o.vv *= 1 - .4*dt; }
     o.roll += (o.vu/o.r)*dt;
+    if (o.q && sp > 1) o.q = qnorm(qmul(qaxis(o.vv, 0, -o.vu, sp/o.r*dt), o.q));
     if (o.brick) o.yaw += dt*1.5;
     const across = (o.u - gap.P.u)*gap.n.u + (o.v - gap.P.v)*gap.n.v;
     if (across < RIM_W + 2){ o.y = floorY(o.u, o.v); o.vy = 0; }
@@ -3224,6 +3247,7 @@ function drawOut(o){
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.s, p.s);
   const ph = o.phase + time*.6;
   // びっくり顔の まま（su＝1）
+  if (o.q && rollable(o)){ drawLion3D(o, ph, { blink:1, sm:0, su:1, sk:1 }); ctx.restore(); ctx.globalAlpha = 1; return; }
   drawCreature(ctx, o.tier, o.r, ph, 1, o.sq, 0, 1, 1, 0, 0, 0, ph - o.roll*TIERS[o.tier].fluff*.5);
   ctx.restore(); ctx.globalAlpha = 1;
 }
@@ -3741,7 +3765,10 @@ function drawBall(b){
     }
   }
   const phase = b.phase + time*.6;
-  if (rollable(b) && !(b.spinT > 0)){ drawRollingLion(b, phase); ctx.restore(); return; }
+  if (rollable(b)){
+    if (b.spinT > 0) ctx.rotate((1 - b.spinT/.45)*6.2832*(b.spinDir || 1));
+    drawLion3D(b, phase); ctx.restore(); return;
+  }
   ctx.rotate(b.lean + (b.spinT > 0 ? (1 - b.spinT/.45)*6.2832*(b.spinDir || 1) : 0));
   // とんで いる あいだは たてに すこし のびる（ふわっ）
   const air = b.h > 1 ? clamp(b.vh/900, -.08, .1) : 0;
@@ -3750,21 +3777,21 @@ function drawBall(b){
   ctx.restore();
 }
 /* ============================================================
-   試作：らいおんが 球として 転がる（方法3・第10版の 試作）
+   試作：らいおんを ほんとうの 3D で えがく（第11版の 試作）
    ------------------------------------------------------------
-   ・速く 転がって いる あいだは、顔が 球の 表面に そって ぐるっと まわる
-     （横へ 転がれば 顔ごと くるっと、手前・奥へ 転がれば 顔が 上下に 流れて 裏へ かくれる）。
-   ・ゆっくりに なると、起き上がりこぼしの ように「よいしょ」と 正面に もどる。
-     止まって いる ときは いままで どおり 顔が 見える（表情が 読める）。
-   ・絵は 本体の drawCreature を 2まいに わけて つかう：
-       たてがみ（体・もこもこ輪郭）… 光の 向きは 動かさない。でこぼこだけ 回る
-       顔（かおの 円・耳・目・口・ほっぺ）… 体の 色を 透明に して えがいた ものを、球に 貼った シールの ように 動かす
-   ・らいおんは 後ろ姿も たてがみ なので、試作に ちょうど いい（ほかの子は 後ろ姿を 描く ひつようが ある）。
+   らいおんを 立体の「もの」として 作り、カメラから 見た 形を 毎回 計算して えがく。
+     ・あたま …… 球（半径 0.8r）。前の 丸い ところが 顔の 色、それ以外は たてがみの 色。
+                  1ピクセルずつ「球の どこが 見えて いるか」を 計算して 色を ぬる。
+     ・顔の パーツ …… 目・はな・口・ほっぺ・マズルは、球の 前に 貼りつけた もよう（まっすぐ 前から 投影）。
+                  横を 向けば 横から 見た 形に、うしろを 向けば かくれる。
+     ・たてがみ …… 顔の まわりを 1周する もこもこ 10こ ＋ うしろがわに 7こ（どれも 小さな 球）。
+     ・みみ …… 小さな 球 2こ。内がわの ピンクは 向きに あわせて つぶれる。
+   光は いつも 左上（本体の 絵と 同じ）。転がっても 光の 向きは 変わらない。
    ============================================================ */
-let ROLL3D = ROLL3D_DEFAULT;          // 🔄 ボタンで 切りかえ（くらべる ため）
-const ROLL_FAST = 110;                // これより 速いと 完全に 転がる
-const ROLL_SLOW = 45;                 // これより おそいと 正面へ もどる 力が いちばん 強い
-const RIGHT_RATE = 5.5;               // 正面へ もどる はやさ
+let ROLL3D = ROLL3D_DEFAULT;      // 試作：🔄 で 切りかえ
+let LION_REST = "up";             // "up"＝止まると 起き上がる（向きは そのまま） ／ "free"＝転がった まま
+const ROLL_SLOWV = 60;            // これより おそいと 起き上がりはじめる
+const RIGHT_RATE = 3.2;           // 起き上がる はやさ
 // 四元数（w, x, y, z）
 function qmul(a, b){
   return [a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
@@ -3782,76 +3809,256 @@ function qslerp(a, b, t){
   const ka = Math.sin((1 - t)*th)/s, kb = Math.sin(t*th)/s;
   return a.map((x, i) => x*ka + b[i]*kb);
 }
-function qrot(q, v){           // v を q で まわす
+function qrot(q, v){           // v を q で まわす（らいおんの 中 → お盆の 世界）
   const [w, x, y, z] = q, [vx, vy, vz] = v;
   const tx = 2*(y*vz - z*vy), ty = 2*(z*vx - x*vz), tz = 2*(x*vy - y*vx);
   return [vx + w*tx + (y*tz - z*ty), vy + w*ty + (z*tx - x*tz), vz + w*tz + (x*ty - y*tx)];
 }
-// 正面の 向き：顔（ローカル z）が カメラの ほう、顔の 上（ローカル y）が 画面の 上
+function qrotInv(q, v){ return qrot([q[0], -q[1], -q[2], -q[3]], v); }
+// 世界は（u, 高さ, v）。カメラは 手前（+v）の ななめ上。
+// 正面の 向き：顔（らいおんの z）が カメラの ほう、顔の 上（y）が 画面の 上
 const Q_FRONT = qaxis(1, 0, 0, -PHI);
+// 起き上がった ときの しせい：頭は 上、顔は 35度 だけ 上を 見る（まっすぐ カメラを 見る のは 55度）
+const REST_TILT = 35*Math.PI/180;
+const Q_REST = qaxis(1, 0, 0, -REST_TILT);
 const UPC = [0, COSP, -SINP], TOC = [0, SINP, COSP];
-function scrX(w){ return w[0]; }
-function scrY(w){ return -(w[0]*UPC[0] + w[1]*UPC[1] + w[2]*UPC[2]); }
+function scrY(w){ return -(w[0]*UPC[0] + w[1]*UPC[1] + w[2]*UPC[2]); }   // 画面の 下むき
 function toCam(w){ return w[0]*TOC[0] + w[1]*TOC[1] + w[2]*TOC[2]; }
 function rollable(b){ return ROLL3D && TIERS[b.tier] && TIERS[b.tier].face === "lion"; }
 
 function stepRoll(b, dt){
-  if (!b.q){ b.q = Q_FRONT.slice(); b.spin = 0; }
+  if (!b.q) b.q = qmul(qaxis(0, 1, 0, rnd(-.5, .5)), Q_REST);
   const sp = Math.hypot(b.vu, b.vv);
   if (sp > 1){
-    // すべらずに 転がる：まわる 軸は 上むき × すすむ 向き、角度は きょり ÷ 半径
-    const ang = sp/b.r*dt;
-    b.q = qnorm(qmul(qaxis(b.vv, 0, -b.vu, ang), b.q));
-    b.spin += (-b.vu*COSP)/b.r*dt;          // 画面の 中で まわる ぶん（たてがみの でこぼこ）
+    // すべらずに 転がる：まわる 軸は 上むき × すすむ 向き、角度は すすんだ きょり ÷ 半径
+    b.q = qnorm(qmul(qaxis(b.vv, 0, -b.vu, sp/b.r*dt), b.q));
   }
-  // 方法3：おそく なったら 正面へ（起き上がりこぼし）
-  const k = clamp((ROLL_FAST - sp)/(ROLL_FAST - ROLL_SLOW), 0, 1);
-  if (k > 0 && b.h <= 1) b.q = qslerp(b.q, Q_FRONT, 1 - Math.exp(-RIGHT_RATE*k*k*dt));
+  if (LION_REST === "up" && b.h <= 1){
+    // 起き上がりこぼし：おそく なると 頭が 上に もどる。どっちを 向くかは そのまま（こっちを 向くとは かぎらない）
+    const k = clamp((ROLL_SLOWV - sp)/ROLL_SLOWV, 0, 1);
+    if (k > 0){
+      const f = qrot(b.q, [0, 0, 1]);
+      const yaw = Math.atan2(f[0], f[2]);
+      const target = qmul(qaxis(0, 1, 0, yaw), Q_REST);
+      b.q = qslerp(b.q, target, 1 - Math.exp(-RIGHT_RATE*k*dt));
+    }
+  }
 }
 
-const faceTex = document.createElement("canvas");
-const faceCtx = faceTex.getContext("2d");
-const TEX = 256, TEXU = 1.12;     // 顔の 絵は [-1.12, 1.12]×r の はんい を 256px に
-faceTex.width = TEX; faceTex.height = TEX;
-function drawMane(g, T, r, spinPhase){
-  const grd = g.createRadialGradient(-r*.3, -r*.35, r*.1, 0, 0, r*1.05);
-  grd.addColorStop(0, T.hi || "#ffffff"); grd.addColorStop(.35, T.body); grd.addColorStop(1, T.shade);
-  g.fillStyle = grd; g.strokeStyle = T.line; g.lineWidth = Math.max(1, r*0.05);
-  fluffPath(g, r, T.fluff, T.amp, spinPhase);
-  g.fill(); g.stroke();
+/* ---- 色 ---- */
+function hexRGB(h){ const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+const L3 = {
+  RS: .80,          // あたまの 球の 半径（×r）
+  F: .925,          // 顔の まるの 大きさ（球の 半径を 1 と して。2Dの 顔の 円 0.74r に あわせた）
+  WL: .048,         // 顔の ふちの 線の 太さ
+  RING1: { n:10, ang:100, d:1.0, pr:.235, off:.5 },   // 顔の まわりを 1周
+  RING2: { n:7,  ang:143, d:.93, pr:.23,  off:0 },    // うしろがわ
+  EAR: { x:.55, y:.825, z:.13, d:1.0, r:.165 },
+  FRONT: .30,       // これより カメラがわに ある パーツは 頭の 前に えがく
+};
+let lionCol = null;
+function lionColors(T){
+  if (lionCol && lionCol.T === T) return lionCol;
+  lionCol = { T,
+    mane: [hexRGB(T.hi || "#ffffff"), hexRGB(T.body), hexRGB(T.shade)],
+    face: [[255, 255, 255], hexRGB(T.faceB), hexRGB(T.faceS)],
+    faceL: hexRGB(T.faceL), line: hexRGB(T.line) };
+  return lionCol;
 }
-/* ballの ばしょで（translate・scale ずみ）、転がる らいおんを えがく */
-function drawRollingLion(b, phase){
-  const T = TIERS[b.tier], r = b.r;
-  // ① たてがみ（光は 左上の まま。でこぼこだけ 回す）
+function grad3(c, t, out){      // 本体の からだの ぬり方（0：つや、.35：地の 色、1：かげ）を まねる
+  let a, b, k;
+  if (t < .35){ a = c[0]; b = c[1]; k = Math.max(0, t)/.35; }
+  else { a = c[1]; b = c[2]; k = Math.min(1, (t - .35)/.65); }
+  out[0] = a[0] + (b[0] - a[0])*k; out[1] = a[1] + (b[1] - a[1])*k; out[2] = a[2] + (b[2] - a[2])*k;
+}
+
+/* ---- 顔の もよう（目・口など）：表情ごとに 1まい 作って とっておく ---- */
+const DTEX = 256;                 // もようの 絵の 大きさ（2Dの 半径 r ＝ 128px）
+const decalCv = document.createElement("canvas"); decalCv.width = DTEX; decalCv.height = DTEX;
+const decalCx = decalCv.getContext("2d", { willReadFrequently: true });
+const decalCache = new Map();
+function lionDecal(tier, blink, sm, su, sk){
+  const kb = Math.round(blink*4), ks = Math.round(sm*4), ku = Math.round(su*4);
+  const key = tier + ":" + kb + ":" + ks + ":" + ku + ":" + sk;
+  let d = decalCache.get(key);
+  if (d) return d;
+  if (decalCache.size > 60) decalCache.clear();
+  const T = TIERS[tier], clear = "rgba(0,0,0,0)", rt = DTEX/2;
+  const g = decalCx;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, DTEX, DTEX);
+  g.setTransform(1, 0, 0, 1, rt, rt);
+  // マズル（ふたこぶ）
+  g.fillStyle = "#FFF3DC";
+  for (const s of [-1, 1]){ g.beginPath(); g.ellipse(s*rt*.135, rt*.275, rt*.175, rt*.145, 0, 0, 7); g.fill(); }
+  // 目・はな・口・ほっぺ：本体の drawCreature を、体と 顔の 円を 透明に して つかう
+  const TF = Object.assign({}, T, { body:clear, shade:clear, line:clear, hi:clear, face:"lion3d", ear:"none" });
+  let acc = 0;
+  const realAcc = drawAccent;
+  drawAccent = (gg, TT, rr, A) => { acc = A; };       // よこの ハートは 画面に じかに（あとで）
+  TIERS[tier] = TF;
+  try { drawCreature(g, tier, rt, 0, kb/4, 0, ks/4, ku/4, sk); }
+  finally { TIERS[tier] = T; drawAccent = realAcc; }
+  d = { px: g.getImageData(0, 0, DTEX, DTEX).data, acc };
+  decalCache.set(key, d);
+  return d;
+}
+
+/* ---- あたまの 球（1ピクセルずつ） ---- */
+const headCv = document.createElement("canvas");
+const headCx = headCv.getContext("2d");
+let headImg = null;
+function renderHead(q, T, rUnits, Rpx, decal){
+  const S = Math.ceil(2*Rpx) + 2;
+  if (headCv.width !== S){ headCv.width = S; headCv.height = S; headImg = null; }
+  if (!headImg) headImg = headCx.createImageData(S, S);
+  const D = headImg.data; D.fill(0);
+  const C = lionColors(T);
+  // 画面の 右・上・手前 が らいおんの 中で どっちか
+  const Lx = qrotInv(q, [1, 0, 0]), Ly = qrotInv(q, UPC), Lz = qrotInv(q, TOC);
+  const c = S/2, RS = L3.RS, F = L3.F, WL = L3.WL, Fc = F - WL/2;
+  const px = decal.px, rt = DTEX/2, ds = RS*rt;          // らいおんの 中の 1 ＝ もようの ds px
+  const col = [0, 0, 0], inv = 1/Rpx;
+  const faceR = 1 - 2*T.amp;                              // 2Dの 顔の 円の 半径（×r）
+  for (let j = 0; j < S; j++){
+    const y = (c - (j + .5))*inv;
+    for (let i = 0; i < S; i++){
+      const x = ((i + .5) - c)*inv;
+      const r2 = x*x + y*y;
+      if (r2 >= 1 + 2*inv) continue;
+      const dist = Math.sqrt(r2);
+      const a = Math.min(1, Math.max(0, (1 - dist)*Rpx + .5));
+      if (a <= 0) continue;
+      const z = Math.sqrt(Math.max(0, 1 - r2));
+      const lx = x*Lx[0] + y*Ly[0] + z*Lz[0];
+      const ly = x*Lx[1] + y*Ly[1] + z*Lz[1];
+      const lz = x*Lx[2] + y*Ly[2] + z*Lz[2];
+      // 画面の うえでの 位置（×r、下むきが +）… 光は 画面に くっついて いる
+      const X = x*RS, Y = -y*RS;
+      const rho = lz > 0 ? Math.sqrt(lx*lx + ly*ly) : 9;
+      if (rho < F){
+        const t = (Math.hypot(X/faceR + .3, Y/faceR + .35) - .1)/.95;
+        grad3(C.face, t*.85, col);
+        // もよう（目・口など）… 前から 投影。まわりと まぜて なめらかに
+        const tx = rt + lx*ds - .5, ty = rt - ly*ds - .5;
+        const ix = tx | 0, iy = ty | 0, fx = tx - ix, fy = ty - iy;
+        if (ix >= 0 && iy >= 0 && ix < DTEX - 1 && iy < DTEX - 1){
+          let pr = 0, pg = 0, pb = 0, pa = 0;
+          const o = (iy*DTEX + ix)*4;
+          const w00 = (1 - fx)*(1 - fy), w10 = fx*(1 - fy), w01 = (1 - fx)*fy, w11 = fx*fy;
+          let al;
+          al = px[o + 3]*w00;            pr += px[o]*al;            pg += px[o + 1]*al;            pb += px[o + 2]*al;            pa += al;
+          al = px[o + 7]*w10;            pr += px[o + 4]*al;        pg += px[o + 5]*al;            pb += px[o + 6]*al;            pa += al;
+          al = px[o + DTEX*4 + 3]*w01;   pr += px[o + DTEX*4]*al;   pg += px[o + DTEX*4 + 1]*al;   pb += px[o + DTEX*4 + 2]*al;   pa += al;
+          al = px[o + DTEX*4 + 7]*w11;   pr += px[o + DTEX*4 + 4]*al; pg += px[o + DTEX*4 + 5]*al; pb += px[o + DTEX*4 + 6]*al; pa += al;
+          if (pa > 0){
+            const A = pa/255, k = 1/pa;
+            col[0] = col[0]*(1 - A) + pr*k*A; col[1] = col[1]*(1 - A) + pg*k*A; col[2] = col[2]*(1 - A) + pb*k*A;
+          }
+        }
+      } else {
+        const t = (Math.hypot(X + .3, Y + .35) - .1)/.95;
+        grad3(C.mane, t, col);
+      }
+      // 顔の ふちの 線（立体に そって まがる）
+      if (lz > 0){
+        const m = Math.min(1, Math.max(0, (WL/2 - Math.abs(rho - Fc))*Rpx*1.2 + .5));
+        if (m > 0){ const L = C.faceL; col[0] += (L[0] - col[0])*m; col[1] += (L[1] - col[1])*m; col[2] += (L[2] - col[2])*m; }
+      }
+      const o = (j*S + i)*4;
+      D[o] = col[0]; D[o + 1] = col[1]; D[o + 2] = col[2]; D[o + 3] = a*255;
+    }
+  }
+  headCx.putImageData(headImg, 0, 0);
+  return S;
+}
+
+/* ---- らいおん 1匹（ctx は ボールの 中心に translate・scale ずみ） ---- */
+const LION_PARTS = (() => {
+  const P = [];
+  for (const R of [L3.RING1]){          // うしろがわの もこもこ（RING2）は ごつごつ して 見えたので なし
+    const a = R.ang*Math.PI/180;
+    for (let i = 0; i < R.n; i++){
+      const ph = (i + R.off)/R.n*Math.PI*2 + Math.PI/2;
+      P.push({ k:"puff", dir:[Math.sin(a)*Math.cos(ph), Math.sin(a)*Math.sin(ph), Math.cos(a)], d:R.d, pr:R.pr });
+    }
+  }
+  for (const s of [-1, 1]){
+    const e = L3.EAR, l = Math.hypot(e.x, e.y, e.z);
+    P.push({ k:"ear", dir:[s*e.x/l, e.y/l, e.z/l], d:e.d, pr:e.r });
+  }
+  return P;
+})();
+function drawLion3D(b, phase, ex){
+  if (!b.q) b.q = Q_REST.slice();
+  const T = TIERS[b.tier], r = b.r, RS = L3.RS*r;
   const air = b.h > 1 ? clamp(b.vh/900, -.08, .1) : 0;
-  const sy = 1 + b.sq + air, sx = (1 - (b.sq + air)*.75);
-  ctx.save(); ctx.scale(sx, sy);
-  drawMane(ctx, T, r, phase + b.spin*T.fluff);     // phase が ふえると 左まわり（spin も 左まわりが プラス）
-  ctx.restore();
-  // ② 顔：体を 透明に した らいおんを 絵に して、球の 表面に 貼る
-  const f = qrot(b.q, [0, 0, 1]), er = qrot(b.q, [1, 0, 0]), eu = qrot(b.q, [0, 1, 0]);
-  const fz = toCam(f);
-  const vis = clamp((fz + .05)/.35, 0, 1);            // 裏へ まわると うすく なって 消える
-  if (vis <= 0) return;
-  const clear = "rgba(0,0,0,0)";
-  const TF = Object.assign({}, T, { body:clear, shade:clear, line:clear, hi:clear });
-  faceCtx.setTransform(1, 0, 0, 1, 0, 0);
-  faceCtx.clearRect(0, 0, TEX, TEX);
-  // 半径 1 で えがくと 線の 太さの 下限（1px）が 大きすぎる ので、ピクセルの 大きさで えがく
-  faceCtx.setTransform(1, 0, 0, 1, TEX/2, TEX/2);
-  const bk = TIERS[b.tier]; TIERS[b.tier] = TF;
-  try { drawCreature(faceCtx, b.tier, TEX/(2*TEXU), phase, blinkAmt(b), 0, smileAmt(b), surpAmt(b), b.surpKind); }
-  finally { TIERS[b.tier] = bk; }
+  const sq = b.sq + air;
   ctx.save();
-  // 球の 輪郭の 内がわだけ（ふちの たてがみに かくれる）
-  ctx.beginPath(); ctx.arc(0, 0, r*(1 - T.amp*1.2), 0, 7); ctx.clip();
-  ctx.globalAlpha = vis;
-  // 顔の 平面（接平面）を 画面へ：x→er、y（下むき）→ -eu、中心は f
-  ctx.transform(r*scrX(er), r*scrY(er), -r*scrX(eu), -r*scrY(eu), r*scrX(f), r*scrY(f));
-  ctx.drawImage(faceTex, -TEXU, -TEXU, 2*TEXU, 2*TEXU);
+  ctx.scale(1 - sq*.75, 1 + sq);
+  const m = ctx.getTransform();
+  const ppu = Math.hypot(m.a, m.b);                   // 1 あたりの 画面ピクセル
+  const Rpx = Math.min(130, RS*ppu);
+  const lw = Math.max(1, r*.05);
+  // パーツの 画面の 位置と 深さ
+  const parts = LION_PARTS.map(p => {
+    const w = qrot(b.q, p.dir);
+    return { p, x: w[0]*RS*p.d, y: scrY(w)*RS*p.d, z: toCam(w), w };
+  });
+  const back = parts.filter(o => o.z < L3.FRONT), front = parts.filter(o => o.z >= L3.FRONT).sort((a, b) => a.z - b.z);
+  const gB = ctx.createRadialGradient(-r*.3, -r*.35, r*.1, 0, 0, r*1.05);
+  gB.addColorStop(0, T.hi || "#ffffff"); gB.addColorStop(.35, T.body); gB.addColorStop(1, T.shade);
+  const puffs = (list) => {
+    // ふちどりを 先に 太く ぬり、その上から 中を ぬる（重なった ところに 線が 出ない）
+    ctx.fillStyle = T.line;
+    for (const o of list) if (o.p.k === "puff"){ ctx.beginPath(); ctx.arc(o.x, o.y, o.p.pr*r + lw*.5, 0, 7); ctx.fill(); }
+    ctx.fillStyle = gB;
+    for (const o of list) if (o.p.k === "puff"){ ctx.beginPath(); ctx.arc(o.x, o.y, o.p.pr*r - lw*.5, 0, 7); ctx.fill(); }
+  };
+  const ear = (o) => {
+    const er = o.p.pr*r;
+    ctx.fillStyle = T.faceB; ctx.strokeStyle = T.faceL; ctx.lineWidth = Math.max(1, r*.035);
+    ctx.beginPath(); ctx.arc(o.x, o.y, er, 0, 7); ctx.fill(); ctx.stroke();
+    // 内がわの ピンク：みみの 向き（外がわ＋すこし 前）に あわせて つぶれる
+    const L = o.p.dir, n = qrot(b.q, [L[0]*.4, L[1]*.4, L[2]*.4 + 1]);
+    const nl = Math.hypot(n[0], n[1], n[2]); const nx = n[0]/nl, ny = scrY(n)/nl, nz = toCam(n)/nl;
+    if (nz > .02){
+      ctx.fillStyle = T.earIn;
+      ctx.beginPath();
+      ctx.ellipse(o.x + nx*er*.35, o.y + ny*er*.35, er*.52, er*.52*nz, Math.atan2(ny, nx), 0, 7);
+      ctx.fill();
+    }
+  };
+  // ① うしろの パーツ（頭の かげに なる ぶん）
+  ctx.fillStyle = T.line;
+  ctx.beginPath(); ctx.arc(0, 0, RS + lw*.5, 0, 7); ctx.fill();          // 頭の ふちどり
+  puffs(back);
+  for (const o of back) if (o.p.k === "ear") ear(o);
+  // ② 頭
+  const decal = ex ? lionDecal(b.tier, ex.blink, ex.sm, ex.su, ex.sk)
+                  : lionDecal(b.tier, blinkAmt(b), smileAmt(b), surpAmt(b), b.surpKind || 1);
+  const S = renderHead(b.q, T, r, Rpx, decal);
+  const k = RS/(Rpx);                                 // 画像 1px ＝ k
+  ctx.drawImage(headCv, -S/2*k, -S/2*k, S*k, S*k);
+  // ③ 前の パーツ。ふちどりは 頭の 外に はみ出た ところ だけ（頭の 上では もこもこの かげ だけ）
+  ctx.save();
+  ctx.beginPath(); ctx.rect(-r*2, -r*2, r*4, r*4); ctx.arc(0, 0, RS - 1, 0, 7, true); ctx.clip();
+  puffs(front);
   ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(0, 0, RS - .5, 0, 7); ctx.clip();
+  for (const o of front) if (o.p.k === "puff"){
+    const pr = o.p.pr*r, g2 = ctx.createRadialGradient(o.x - pr*.25, o.y - pr*.3, pr*.1, o.x, o.y, pr);
+    g2.addColorStop(0, "rgba(255,235,190,.35)"); g2.addColorStop(.6, "rgba(255,235,190,0)");
+    g2.addColorStop(.8, T.shade + "00"); g2.addColorStop(1, T.shade + "66");
+    ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(o.x, o.y, pr, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  for (const o of front) if (o.p.k === "ear") ear(o);
+  ctx.restore();
+  // よこの ハート（うれしい とき）は 画面に じかに
+  if (decal.acc > 0) drawAccent(ctx, T, r, decal.acc, phase);
 }
+
 
 function runnerY(g, q){ return (g.stage <= 2) ? floorY(q.u, q.v) : g.hy; }
 function drawRunnerGroup(g){
@@ -4047,10 +4254,10 @@ function loop(now){
   if (!running) return;
   const dt = Math.min(1/30, Math.max(0, (now - last)/1000 || 0));
   last = now;
-  update(dt);
-  draw();
-  drawNext(dt);
+  // 先に つぎの コマを たのむ。どこかで まちがいが おきても 画面が 止まったまま（固まる）に ならない
   requestAnimationFrame(loop);
+  try { update(dt); draw(); drawNext(dt); }
+  catch(e){ if (!loop.warned){ loop.warned = true; console.error(e); } }
 }
 document.addEventListener("visibilitychange", () => {
   if (document.hidden){ running = false; }
@@ -4072,8 +4279,13 @@ document.getElementById("sceneBtn").addEventListener("click", () => changeScene(
   const rb = document.getElementById("rollBtn");
   if (rb){
     if (ROLL3D_DEFAULT) rb.style.display = "";
-    const paint = () => { rb.textContent = ROLL3D ? "🔄 転がる" : "🔄 いままで"; };
-    rb.addEventListener("click", () => { ROLL3D = !ROLL3D; for (const b of balls) b.q = null; paint(); });
+    const paint = () => { rb.textContent = !ROLL3D ? "🔄 いままで" : LION_REST === "up" ? "🔄 3D・起きる" : "🔄 3D・自由"; };
+    rb.addEventListener("click", () => {
+      if (!ROLL3D){ ROLL3D = true; LION_REST = "up"; }
+      else if (LION_REST === "up") LION_REST = "free";
+      else ROLL3D = false;
+      for (const b of balls) b.q = null; paint();
+    });
     paint();
   }
 }
@@ -4304,7 +4516,7 @@ function stepOver(dt){
   const sec = worst < 99 ? Math.ceil(worst) : -1;
   if (sec !== overTick){ overTick = sec; if (sec > 0) beep(sec === 1 ? 988 : 784, .08, "square", .06); }
 }
-function bestKey(){ return "mamemaru3d-best-" + limit; }
+function bestKey(){ return "mamemaru3d-best-" + limit + (TIERS.length === 6 ? "" : "-" + TIERS.length + "types"); }
 function showResult(){
   const sc = scoreNow();
   let best = 0;
@@ -4392,19 +4604,26 @@ paintLimit();
    ============================================================ */
 /* 解放ずみの シークレットだけ えらべる（本体と おなじ。unlockedChars は 本体の 記録 mamemaru-unlocked） */
 function isUsable(c){ return !c || !c.secret || unlockedChars.indexOf(c.name) >= 0; }
-let chosen = null;          // えらんだ 6体（ALL_CHARACTERS の 要素）
+let chosen = null;          // えらんだ 1〜6体（ALL_CHARACTERS の 要素）
 try {
-  const names = JSON.parse(localStorage.getItem("mamemaru3d-selected-chars") || "null");
+  const names = JSON.parse(localStorage.getItem(CHAR_KEY) || "null");
   if (Array.isArray(names)){
     const cs = names.map(n => ALL_CHARACTERS.find(c => c.name === n)).filter(c => c && isUsable(c));
-    if (cs.length === 6) chosen = cs;
+    if (cs.length >= 1 && cs.length <= MAX_TYPES) chosen = cs;
   }
 } catch(e){}
 function applySelected(){
   const set = chosen || DEFAULT_TIERS;
+  SIZE_LADDER = sizeLadder(set.length);
+  // 第11版の 不具合：遊んだ あとに 数を へらすと、お盆に のこって いた 子（もう いない 種類）を
+  // えがこうと して エラー → 画面が 固まった。ゲーム中 でなければ、のこりを かたづける
+  if (gameState !== "play"){
+    balls = []; pending = []; merges = []; runners = []; outs = []; waiters = []; fx = [];
+  }
   TIERS.length = 0;
   set.forEach((c, i) => TIERS.push(Object.assign({}, c, { r: SIZE_LADDER[i] })));
   LAST = TIERS.length - 1;
+  if (nextQ.some(t => t > LAST)){ nextQ.length = 0; nextQ.push(pickDrop(), pickDrop()); }
   nextDirty = true;
 }
 /* drawCreature は TIERS[i] を 見るので、見本を えがく あいだだけ 入れかえて かならず もどす */
@@ -4423,11 +4642,12 @@ function drawIcon(cv, list, i, r, size){
 function paintLineup(){
   const row = document.getElementById("lineup");
   row.textContent = "";
-  const set = (chosen || DEFAULT_TIERS).map((c, i) => Object.assign({}, c, { r: SIZE_LADDER[i] }));
-  const S = 17 / SIZE_LADDER[0];
+  const L = sizeLadder((chosen || DEFAULT_TIERS).length);
+  const set = (chosen || DEFAULT_TIERS).map((c, i) => Object.assign({}, c, { r: L[i] }));
+  const S = 17 / LADDER6[0];
   set.forEach((c, i) => {
     const cv = document.createElement("canvas");
-    drawIcon(cv, set, i, SIZE_LADDER[i]*S, 40);
+    drawIcon(cv, set, i, L[i]*S, 40);
     row.appendChild(cv);
   });
 }
@@ -4435,11 +4655,11 @@ function openCharSel(){
   const layer = document.getElementById("charSel");
   const grid = document.getElementById("csGrid"), order = document.getElementById("csOrder");
   const okBtn = document.getElementById("csOk"), cnt = document.getElementById("csCount");
-  const picked = (chosen || []).map(c => ALL_CHARACTERS.indexOf(c)).filter(i => i >= 0);
+  const picked = (chosen || DEFAULT_TIERS).map(c => ALL_CHARACTERS.indexOf(c)).filter(i => i >= 0);   // いまの 顔ぶれから はじめる（へらすのも かんたん）
   grid.textContent = "";
   const paint = () => {
-    cnt.textContent = "選んだ数 " + picked.length + " / 6";
-    okBtn.disabled = picked.length !== 6;
+    cnt.textContent = "選んだ数 " + picked.length + " / " + MAX_TYPES;
+    okBtn.disabled = picked.length < 1;
     grid.querySelectorAll(".cc").forEach(el => {
       const n = picked.indexOf(+el.dataset.ci);
       el.classList.toggle("on", n >= 0);
@@ -4447,12 +4667,13 @@ function openCharSel(){
     });
     order.textContent = "";
     if (!picked.length){ order.innerHTML = '<div class="empty">選ぶとここに並びます</div>'; return; }
-    const set = picked.map((k, i) => Object.assign({}, ALL_CHARACTERS[k], { r: SIZE_LADDER[i] }));
-    const S = 20 / SIZE_LADDER[0];
+    const L = sizeLadder(picked.length);
+    const set = picked.map((k, i) => Object.assign({}, ALL_CHARACTERS[k], { r: L[i] }));
+    const S = 20 / LADDER6[0];
     set.forEach((c, i) => {
       if (i){ const a = document.createElement("span"); a.className = "arw"; a.textContent = "▸"; order.appendChild(a); }
       const cv = document.createElement("canvas");
-      drawIcon(cv, set, i, SIZE_LADDER[i]*S, 44);
+      drawIcon(cv, set, i, L[i]*S, 44);
       order.appendChild(cv);
     });
   };
@@ -4468,7 +4689,7 @@ function openCharSel(){
     card.addEventListener("click", () => {
       const k = picked.indexOf(idx);
       if (k >= 0) picked.splice(k, 1);
-      else if (picked.length < 6) picked.push(idx);
+      else if (picked.length < MAX_TYPES) picked.push(idx);
       else return;
       beep(k >= 0 ? 520 : 700, .05, "sine", .05);
       paint();
@@ -4476,9 +4697,9 @@ function openCharSel(){
     grid.appendChild(card);
   });
   okBtn.onclick = () => {
-    if (picked.length !== 6) return;
+    if (picked.length < 1) return;
     chosen = picked.map(k => ALL_CHARACTERS[k]);
-    try { localStorage.setItem("mamemaru3d-selected-chars", JSON.stringify(chosen.map(c => c.name))); } catch(e){}
+    try { localStorage.setItem(CHAR_KEY, JSON.stringify(chosen.map(c => c.name))); } catch(e){}
     closeCharSel();
   };
   document.getElementById("csDef").onclick = () => {    // もとの 6体に もどす
@@ -4535,7 +4756,7 @@ window.__m3d = {
   stop(){ running = false; },
   quiet(){ started = false; },
   brick(u, v){ const b = newBrick(u, v); b.age = 1; balls.push(b); return b; }, jama(u, v){ const b = newJama(u, v); b.age = 1; balls.push(b); return b; }, get bricks(){ return balls.filter(b => b.brick).length; },
-  get faceTex(){ return faceTex.toDataURL(); }, qOf(i){ return balls[i] && balls[i].q; },
+  clearObs(){ OBS.length = 0; }, qOf(i){ return balls[i] && balls[i].q; }, setQ(i, q){ balls[i].q = q; }, qaxis, qmul, Q_FRONT, Q_REST, get balls2(){ return balls; },
   pick(){ openCharSel(); }, setChosen(names){ chosen = names.map(n => ALL_CHARACTERS.find(c => c.name === n)); applySelected(); paintLineup(); }, get tierNames(){ return TIERS.map(t => t.name); },
   drawC(g, t, r, ph){ drawCreature(g, t, r, ph, 1, 0, .6, 0, 1); }, get theme(){ return C; }, get timeLeft(){ return limit ? limit - playT : playT; },
   fever(){ startFever(); }, sparkle(b){ makeSparkle(b); }, clearAll(u, v){ clearAll(u, v); },
