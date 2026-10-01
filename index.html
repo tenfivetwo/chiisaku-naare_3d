@@ -34,9 +34,11 @@
   #feverBar{display:block;height:100%;width:0;background:linear-gradient(90deg,#FFB05C,#FF7EA8);border-radius:4px;}
   #feverBar.now{background:linear-gradient(90deg,#FF7EA8,#FFE85C,#8FE39B,#7FD4FF,#B79BFF);animation:fvb .6s linear infinite;}
   @keyframes fvb{50%{opacity:.5}}
-  #feverBanner{position:fixed;left:0;right:0;top:34%;text-align:center;font-weight:bold;font-size:min(44px,10vw);white-space:nowrap;pointer-events:none;
+  #feverBanner{position:fixed;left:0;right:0;top:34%;text-align:center;font-weight:bold;font-size:min(42px,8.6vw);white-space:nowrap;pointer-events:none;
     color:#ff7ea8;text-shadow:0 3px 0 #fff,0 0 12px #fff,3px 0 0 #fff,-3px 0 0 #fff;opacity:0;}
   #feverBanner.on{animation:fever 1.6s ease-out;}
+  /* 第13版：うしろに うすい おびを しいて、ほかの 字が かさなっても 読める ように */
+  #feverBanner span{display:inline-block;background:rgba(255,253,246,.94);border-radius:999px;padding:2px 16px 6px;box-shadow:0 4px 14px rgba(255,126,168,.25);}
   @keyframes fever{0%{opacity:0;transform:scale(.4)}15%{opacity:1;transform:scale(1.15)}25%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
   #result{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,250,238,.55);}
   #result.show{display:flex;}
@@ -164,7 +166,7 @@
 <div id="toast"></div>
 <div id="timebar" class="hidden"><span class="lb" id="tbLbl">残り</span><span class="nm" id="tbNum">3:00</span>
   <div class="trk"><div class="fil" id="tbFill"></div><canvas id="tbRun"></canvas></div></div>
-<div id="feverBanner">まめまるシャワー！</div>
+<div id="feverBanner"><span>まめまるシャワー！</span></div>
 <div id="result"><div class="card">
   <div class="rt">おつかれさま！</div>
   <div class="rm" id="resMode"></div>
@@ -183,6 +185,7 @@
   <div id="limitRow" class="chips"><button data-l="300">5分</button><button data-l="600">10分</button><button data-l="0">無制限</button></div>
   <p class="best" id="homeBest"></p>
   <button id="startBtn">はじめる</button>
+  <p class="small">スマホの持ち方</p>
   <div id="baseRow" class="chips"><button data-m="auto">今の持ち方</button><button data-m="30">30度</button><button data-m="45">45度</button><button data-m="0">平ら</button></div>
   <p class="small">スマホは「今の持ち方」なら、はじめるを押したときの角度が水平になります。<br>遊びながら右上の「まっすぐ」でやり直せます。</p>
 </div>
@@ -1965,6 +1968,7 @@ const WW_SPEED = 80;
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
 let W = 0, H = 0, DPR = 1;
+let tbW = 0, tbH = 0, nextW = 0, nextH = 0;   // 時間バー・「つぎ」の 大きさ（はかるのは 変わった ときだけ）
 const PHI = 55 * Math.PI/180;       // ななめ上から 見下ろす 角度
 const SINP = Math.sin(PHI), COSP = Math.cos(PHI);
 const CAM_D = 1150;
@@ -1977,6 +1981,7 @@ function resize(){
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
   cv.style.width = W + "px"; cv.style.height = H + "px";
   fitView();
+  tbW = 0; nextW = 0;    // 部品の 大きさを はかり直す
 }
 /* お盆を 画面の よこはば いっぱいに（形ごとに はかる） */
 function fitView(){
@@ -3889,7 +3894,8 @@ function drawNext(dt){
   nextFace.blink -= dt;
   if (nextFace.blink <= 0){ nextFace.blinkT = .13; nextFace.blink = rnd(2.5, 6); nextDirty = true; }
   if (nextFace.blinkT > 0){ nextFace.blinkT -= dt; nextDirty = true; }
-  const w = nextCv.clientWidth, h = nextCv.clientHeight;
+  if (!nextW){ nextW = nextCv.clientWidth; nextH = nextCv.clientHeight; }   // 大きさは 変わった ときだけ はかる（毎コマ はかると 重い）
+  const w = nextW, h = nextH;
   if (!w) return;                                    // まだ 出て いない
   if (nextCv.width !== Math.round(w*DPR)){ nextCv.width = Math.round(w*DPR); nextCv.height = Math.round(h*DPR); nextDirty = true; nextTick = 0; }
   if (!nextDirty || nextTick > 0) return;
@@ -3908,15 +3914,20 @@ let last = 0, running = true;
    描く 処理が 1本ずつ ふえて 重く なって いた（技術の 評価で 見つかった）。 */
 let rafId = 0;
 function kick0(){ cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop); }
-let loopStamp = -1;
+let loopStamp = -1, resultShown = false;
 function loop(now){
   if (!running) return;
   if (now === loopStamp) return;      // 同じ コマに 2本目が 来たら そこで おわらせる（いつも 1本だけ）
   loopStamp = now;
-  const dt = Math.min(1/30, Math.max(0, (now - last)/1000 || 0));
-  last = now;
   // 先に つぎの コマを たのむ。どこかで まちがいが おきても 画面が 止まったまま（固まる）に ならない
   rafId = requestAnimationFrame(loop);
+  // 第13版（電池）：ホームや 結果の 画面は 動く ものが ほとんど ない ので 1秒に 20回だけ 描く
+  //  （まえは ずっと 60回。120Hz の スマホでは 120回）。遊んで いる あいだは 1秒に 60回まで（それより 速い 画面でも）。
+  const quiet = gameState === "home" || (gameState === "end" && resultShown);
+  const minGap = quiet ? 1000/20 : 1000/62;
+  if (now - last < minGap) return;
+  const dt = Math.min(quiet ? 1/15 : 1/30, Math.max(0, (now - last)/1000 || 0));
+  last = now;
   try { update(dt); draw(); drawNext(dt); }
   catch(e){ if (!loop.warned){ loop.warned = true; console.error(e); } }
 }
@@ -4050,7 +4061,8 @@ function stepGame(dt){
     }
   } else if (gameState === "end"){
     endT += dt;
-    if (endT > 1.4 && !document.getElementById("result").classList.contains("show")) showResult();
+    // 第13版：「やめる」の ときは すぐ 結果を 出す（まえは 1.4秒 何も 反応しなかった）
+    if (endT > (endReason === "quit" ? .15 : 1.4) && !resultShown) showResult();
   }
   paintHUD();
 }
@@ -4078,7 +4090,7 @@ function paintHUD(){
 const tbFill = document.getElementById("tbFill"), tbRun = document.getElementById("tbRun");
 const tbNum = document.getElementById("tbNum"), tbLbl = document.getElementById("tbLbl"), tbBox = document.getElementById("timebar");
 const tbCtx = tbRun.getContext("2d");
-let tbColKey = "";
+let tbColKey = "", tbLeft = "", tbFillW = "";
 function paintTimeBar(){
   if (gameState === "home"){ return; }
   const left = limit ? Math.max(0, limit - playT) : playT;
@@ -4089,7 +4101,8 @@ function paintTimeBar(){
   tbNum.classList.toggle("hurry", !!hurry);
   if (!limit) return;
   const k = clamp(left/limit, 0, 1);
-  tbFill.style.width = (k*100).toFixed(2) + "%";
+  const fw = (k*100).toFixed(1) + "%";
+  if (fw !== tbFillW){ tbFillW = fw; tbFill.style.width = fw; }
   const key = left <= 10 ? "r" : left <= 30 ? "o" : "t" + TH.nm;
   if (key !== tbColKey){
     tbColKey = key;
@@ -4099,9 +4112,10 @@ function paintTimeBar(){
   }
   tbFill.classList.toggle("pulse", !!hurry);
   // 走る 子（バーの さき）
-  tbRun.style.left = `calc(${(k*100).toFixed(2)}% * (1 - 40px / 100%))`;
-  tbRun.style.left = `calc(20px + (100% - 40px) * ${k.toFixed(4)})`;
-  const w = tbRun.clientWidth, h = tbRun.clientHeight;
+  const lf = `calc(20px + (100% - 40px) * ${k.toFixed(3)})`;
+  if (lf !== tbLeft){ tbLeft = lf; tbRun.style.left = lf; }          // 変わった ときだけ 書きかえる
+  if (!tbW){ tbW = tbRun.clientWidth; tbH = tbRun.clientHeight; }
+  const w = tbW, h = tbH;
   if (!w) return;
   if (tbRun.width !== Math.round(w*DPR)){ tbRun.width = Math.round(w*DPR); tbRun.height = Math.round(h*DPR); }
   tbCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -4124,6 +4138,7 @@ function endGame(reason){
   if (gameState !== "play") return;
   endReason = reason || "time";
   gameState = "end"; endT = 0; started = false; fever = null;
+  document.getElementById("quitBtn").style.display = "none";   // おわった あとは もう おせない ので かくす
   if (endReason === "over"){
     // あふれた（本体の「こえちゃった！」と おなじ）。下がる 音で しめる
     fx.push({ t:"txt", u:0, v:0, h:220, s:"こえちゃった！", life:1.8, age:0, c:"#e0405f", size:32 });
@@ -4203,7 +4218,7 @@ function showResult(){
   document.getElementById("resClear").textContent = clearScore + "点（" + clears + "回）";
   document.getElementById("resBest").textContent = isNew && best > 0 ? "最高記録！ " + best + "点" : best > 0 ? "最高 " + best + "点" : "";
   document.getElementById("resBest").classList.toggle("new", isNew);
-  document.getElementById("result").classList.add("show");
+  document.getElementById("result").classList.add("show"); resultShown = true;
 }
 function resetGame(){
   clearTimeout(sceneTimer); sceneSwap = null; overGrace = 0;
@@ -4238,7 +4253,7 @@ function startGame(){
   document.getElementById("nextCard").classList.remove("hidden");
   document.getElementById("hud").classList.remove("hidden");
   document.getElementById("tools").style.display = "";
-  tbBox.classList.remove("hidden"); tbColKey = "";
+  tbBox.classList.remove("hidden"); tbColKey = ""; tbLeft = ""; tbFillW = ""; tbW = 0; nextW = 0; resultShown = false;
   document.getElementById("quitBtn").style.display = "";
   // 第12版：さいしょから お盆に 4匹（まえは 始めの 数秒 お盆が からっぽ だった）
   placeStarters(4);
